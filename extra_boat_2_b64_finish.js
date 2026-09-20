@@ -1,0 +1,1 @@
+window.EXTRA_BOAT_2_B64=window.__EXTRA_BOAT_2_B64;delete window.__EXTRA_BOAT_2_B64;
