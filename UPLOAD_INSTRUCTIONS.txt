@@ -1,0 +1,9 @@
+DOCKYARD DECEPTION v18.2 — GITHUB MOBILE-SAFE
+
+Do NOT upload this ZIP itself.
+
+Extract the ZIP, then upload EVERY individual file inside to the ROOT
+of the GitHub repository using Add file > Upload files.
+
+Keep every filename exactly as-is. index.html must remain index.html.
+This build includes the gear-oil freeze fix and the random manatee yell.
