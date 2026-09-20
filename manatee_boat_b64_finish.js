@@ -1,0 +1,1 @@
+window.MANATEE_BOAT_B64=window.__MANATEE_BOAT_B64;delete window.__MANATEE_BOAT_B64;

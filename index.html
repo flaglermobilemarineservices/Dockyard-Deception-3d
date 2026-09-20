@@ -1,0 +1,2688 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Dockyard Deception — v18.2 Manatee Yell</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07121a;color:white;font-family:Inter,system-ui,Arial,sans-serif;touch-action:none}body{position:relative}
+#stage{position:absolute;inset:0}canvas{display:block;width:100%;height:100%}
+#hud{position:absolute;left:12px;top:12px;z-index:10;max-width:min(520px,calc(100% - 24px));pointer-events:none}
+.panel{background:rgba(4,16,23,.78);border:1px solid rgba(88,211,235,.45);backdrop-filter:blur(10px);border-radius:14px;padding:10px 12px;box-shadow:0 12px 35px rgba(0,0,0,.35)}
+.title{font-weight:1000;font-size:clamp(16px,3vw,24px);letter-spacing:.02em}.small{font-size:12px;color:#b8d4de;line-height:1.35}.status{margin-top:6px;font-weight:900;color:#7ee7ff}.badge{display:inline-block;margin-top:6px;padding:4px 8px;border-radius:999px;background:#173844;color:#d9f7ff;font-size:11px;font-weight:900}
+#loader{position:absolute;inset:0;z-index:50;display:grid;place-items:center;background:linear-gradient(180deg,#07131b,#0a1d28)}#loaderCard{width:min(560px,90vw);text-align:center;padding:24px}.bar{height:12px;border-radius:99px;background:#031017;border:1px solid #345d69;overflow:hidden;margin-top:12px}.bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#46d7f0,#70efb1);transition:width .2s}.loadMsg{margin-top:10px;color:#c4dce5;font-size:13px}.error{color:#ff9d9d}
+#tips{position:absolute;right:12px;top:12px;z-index:9;max-width:340px;pointer-events:none;display:none}.key{display:inline-grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border-radius:6px;background:#eef8fb;color:#0b1b23;font-weight:1000;margin:2px;font-size:11px}
+#mobile{position:absolute;inset:0;z-index:15;pointer-events:none;display:none}.joyBase{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(20px,env(safe-area-inset-bottom));width:138px;height:138px;border-radius:50%;border:2px solid rgba(255,255,255,.28);background:rgba(4,15,22,.32);pointer-events:auto;touch-action:none}.joyKnob{position:absolute;left:45px;top:45px;width:48px;height:48px;border-radius:50%;background:rgba(103,231,255,.8);border:2px solid white;box-shadow:0 4px 18px rgba(0,0,0,.35)}#joyRight{left:auto;right:max(18px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom))}#joyRight .joyKnob{background:rgba(255,176,103,.82)}
+.actionGrid{position:absolute;right:max(8px,env(safe-area-inset-right));bottom:calc(max(20px,env(safe-area-inset-bottom)) + 154px);width:112px;display:grid;grid-template-columns:1fr;gap:8px;pointer-events:auto}.minimalActions .act{min-height:46px;opacity:.62;backdrop-filter:blur(5px)}.minimalActions .act.trick{min-height:36px;opacity:.48;font-size:10px}.minimalActions .act:active{opacity:.95}.act{min-height:50px;border:1px solid rgba(255,255,255,.35);border-radius:12px;background:rgba(8,26,36,.78);color:#fff;font-weight:1000;font-size:11px;padding:6px}.act.primary{background:rgba(40,169,198,.88)}.act:active{transform:scale(.96);filter:brightness(1.25)}
+#desktopActions{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:12;display:none;gap:6px;flex-wrap:wrap;justify-content:center;max-width:95vw}.chip{background:rgba(5,18,26,.78);border:1px solid rgba(104,205,226,.4);border-radius:999px;padding:6px 9px;font-size:11px;color:#d9f3f8;pointer-events:none}
+@media(pointer:coarse){#mobile{display:block}#tips,#desktopActions,#mouseHint,#crosshair{display:none!important}#hud{max-width:72vw}.panel{padding:8px 10px}.small{display:none}}
+
+#mouseHint{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);z-index:18;padding:8px 12px;border-radius:999px;background:rgba(4,16,23,.82);border:1px solid rgba(126,231,255,.5);font-size:12px;font-weight:900;color:#e8fbff;pointer-events:none;white-space:nowrap}
+#crosshair{position:absolute;left:50%;top:50%;width:10px;height:10px;transform:translate(-50%,-50%);z-index:17;display:none;pointer-events:none}
+#crosshair:before,#crosshair:after{content:"";position:absolute;background:rgba(255,255,255,.88);border-radius:2px}
+#crosshair:before{left:4px;top:0;width:2px;height:10px}
+#crosshair:after{left:0;top:4px;width:10px;height:2px}
+@media(max-width:820px),(pointer:coarse){#mouseHint,#crosshair{display:none!important}}
+
+
+#musicCtl{position:absolute;right:12px;bottom:12px;z-index:20;border:1px solid rgba(255,255,255,.28);background:rgba(4,16,23,.72);color:#fff;border-radius:999px;padding:9px 12px;font-weight:900;font-size:11px;cursor:pointer;backdrop-filter:blur(6px)}
+#musicCtl:active{transform:scale(.96)}
+@media(pointer:coarse){#musicCtl{right:10px;bottom:10px;padding:10px 13px;font-size:12px}}
+
+
+#cutsceneOverlay{position:absolute;inset:0;z-index:80;background:#000;display:none;align-items:center;justify-content:center;overflow:hidden}
+#jobCutscene{width:100%;height:100%;object-fit:contain;background:#000}
+#skipCutscene{position:absolute;right:16px;top:16px;z-index:82;border:1px solid rgba(255,255,255,.5);background:rgba(0,0,0,.55);color:white;border-radius:999px;padding:10px 14px;font-weight:900}
+#firstJobPopup{position:absolute;left:50%;top:18%;transform:translate(-50%,-50%) scale(.85);z-index:75;display:none;min-width:min(440px,86vw);text-align:center;padding:18px 22px;border-radius:18px;background:rgba(3,17,26,.90);border:2px solid rgba(126,231,255,.72);box-shadow:0 18px 55px rgba(0,0,0,.48);pointer-events:none}
+#firstJobPopup.show{display:block;animation:firstJobPop 2.6s ease both}
+#firstJobPopup .big{font-size:clamp(26px,6vw,48px);font-weight:1000;letter-spacing:.03em}
+#firstJobPopup .sub{margin-top:6px;color:#c9edf5;font-size:clamp(14px,3vw,19px);font-weight:800}
+@keyframes firstJobPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.72)}13%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}24%,72%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.92)}}
+
+#arrivalCutsceneOverlay{position:absolute;inset:0;z-index:84;background:#000;display:none;align-items:center;justify-content:center;overflow:hidden}
+#arrivalCutsceneVideo{width:100%;height:100%;object-fit:contain;background:#000}
+#skipArrivalCutscene{position:absolute;right:16px;top:16px;z-index:86;border:1px solid rgba(255,255,255,.5);background:rgba(0,0,0,.55);color:white;border-radius:999px;padding:10px 14px;font-weight:900}
+#jobStartPopup{position:absolute;left:50%;top:18%;transform:translate(-50%,-50%) scale(.85);z-index:79;display:none;min-width:min(460px,88vw);text-align:center;padding:18px 22px;border-radius:18px;background:rgba(3,17,26,.90);border:2px solid rgba(255,215,107,.72);box-shadow:0 18px 55px rgba(0,0,0,.48);pointer-events:none}
+#jobStartPopup.show{display:block;animation:firstJobPop 2.6s ease both}
+#jobStartPopup .big{font-size:clamp(24px,5.4vw,44px);font-weight:1000;letter-spacing:.03em}
+#jobStartPopup .sub{margin-top:6px;color:#fff1c8;font-size:clamp(14px,3vw,18px);font-weight:800}
+
+
+#fullscreenBtn{
+  position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
+  z-index:120;min-width:170px;min-height:48px;padding:12px 20px;
+  border-radius:999px;border:1px solid rgba(160,235,255,.78);
+  background:rgba(3,20,30,.88);color:#fff;font:900 15px/1 system-ui,sans-serif;
+  letter-spacing:.04em;box-shadow:0 8px 28px rgba(0,0,0,.35);touch-action:manipulation
+}
+#fullscreenBtn:active{transform:translateX(-50%) scale(.97)}
+
+
+#serviceOverlay{
+  position:absolute;inset:0;z-index:78;display:none;pointer-events:none;
+  font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#fff;
+}
+#serviceOverlay.active{display:block}
+#serviceCard{
+  position:absolute;left:50%;top:11px;bottom:auto;transform:translateX(-50%);
+  width:min(540px,88vw);padding:11px 13px 10px;border-radius:15px;
+  background:rgba(4,19,29,.93);border:1px solid rgba(151,231,255,.58);
+  box-shadow:0 14px 45px rgba(0,0,0,.48);pointer-events:auto;text-align:center;
+}
+#serviceTitle{font-size:clamp(17px,4vw,27px);font-weight:1000;letter-spacing:.025em}
+#serviceText{margin-top:5px;font-size:clamp(12px,2.4vw,15px);line-height:1.35;color:#d6edf4}
+#serviceProgress{margin-top:7px;font-size:12px;font-weight:900;color:#8eeaff;letter-spacing:.05em}
+.serviceBtn{
+  margin:11px 5px 0;min-height:46px;min-width:126px;padding:10px 16px;
+  border-radius:13px;border:1px solid rgba(255,255,255,.42);
+  background:rgba(31,114,144,.92);color:white;font-weight:1000;font-size:14px;
+  touch-action:manipulation
+}
+.serviceBtn.alt{background:rgba(74,78,84,.9)}
+#levelControls{
+  position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);
+  width:min(650px,94vw);height:210px;display:none;pointer-events:none
+}
+.levelArrow{
+  position:absolute;top:68px;width:74px;height:74px;border-radius:50%;
+  border:2px solid rgba(255,224,103,.9);background:rgba(4,18,25,.76);
+  color:#ffe067;font-size:39px;font-weight:1000;pointer-events:auto;
+  animation:arrowPulse .85s ease-in-out infinite alternate;touch-action:manipulation
+}
+#levelLeft{left:5px} #levelRight{right:5px}
+#levelAngle{
+  position:absolute;left:50%;top:0;transform:translateX(-50%);
+  padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.62);
+  font-weight:1000;color:#fff3a0
+}
+@keyframes arrowPulse{from{transform:scale(.92)}to{transform:scale(1.10)}}
+
+.screwHotspot{
+  position:absolute;width:56px;height:56px;border-radius:50%;display:none;
+  border:3px solid #ffe066;background:rgba(255,208,58,.16);z-index:81;
+  pointer-events:auto;animation:hotspotPulse .65s ease-in-out infinite alternate;
+  transform:translate(-50%,-50%);touch-action:manipulation
+}
+.screwHotspot::after{
+  content:"";position:absolute;left:50%;top:50%;width:22px;height:4px;
+  background:#fff4ad;transform:translate(-50%,-50%);border-radius:4px
+}
+#topScrewHotspot{left:55%;top:60%}
+#bottomScrewHotspot{left:55%;top:79%}
+@keyframes hotspotPulse{from{box-shadow:0 0 0 0 rgba(255,224,102,.65)}to{box-shadow:0 0 0 16px rgba(255,224,102,0)}}
+
+#oilCatchGame{
+  position:absolute;left:8%;right:8%;top:18%;bottom:128px;display:none;
+  pointer-events:auto;overflow:hidden;border-radius:18px;
+  border:1px solid rgba(255,255,255,.25);background:rgba(3,13,20,.30);
+  touch-action:none
+}
+#oilDrainPoint{
+  position:absolute;left:55%;top:56%;width:16px;height:16px;border-radius:50%;
+  transform:translateX(-50%);background:#242424;border:2px solid #aaa
+}
+#oilStream{
+  position:absolute;left:55%;top:58%;width:10px;height:28%;
+  transform-origin:top center;border-radius:8px;
+  background:linear-gradient(#24170e,#3a2818,#18120d);
+  opacity:.92
+}
+#oilPan{
+  position:absolute;bottom:12px;left:50%;width:112px;height:34px;
+  transform:translateX(-50%);border:4px solid #9ea5aa;border-top-width:7px;
+  border-radius:12px 12px 22px 22px;background:rgba(36,39,42,.92);
+  box-shadow:inset 0 7px 0 rgba(0,0,0,.36)
+}
+#windReadout{
+  position:absolute;left:12px;top:10px;padding:7px 10px;border-radius:10px;
+  background:rgba(0,0,0,.58);font-weight:900
+}
+#catchReadout{
+  position:absolute;right:12px;top:10px;padding:7px 10px;border-radius:10px;
+  background:rgba(0,0,0,.58);font-weight:900
+}
+#spillMeter{
+  position:absolute;left:12px;right:12px;bottom:56px;height:12px;
+  border-radius:999px;background:rgba(255,255,255,.16);overflow:hidden
+}
+#spillFill{height:100%;width:0;background:#ff725f}
+#pumpPanel{
+  position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);
+  display:none;text-align:center;pointer-events:auto
+}
+#pumpButton{
+  width:150px;height:150px;border-radius:50%;border:5px solid #d7e5ea;
+  background:radial-gradient(circle at 35% 30%,#548da1,#18465b);
+  color:#fff;font-size:22px;font-weight:1000;box-shadow:0 13px 34px rgba(0,0,0,.4);
+  touch-action:manipulation
+}
+#pumpCount{margin-top:11px;font-size:20px;font-weight:1000;color:#ffe78a}
+#serviceDone{
+  position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);
+  display:none;width:min(560px,88vw);padding:22px;border-radius:20px;
+  background:rgba(4,19,29,.96);border:2px solid rgba(110,241,174,.72);
+  text-align:center;pointer-events:auto
+}
+#serviceDone .doneBig{font-size:clamp(25px,5vw,40px);font-weight:1000;color:#73efad}
+#serviceDone .doneNext{margin-top:10px;font-size:clamp(18px,4vw,27px);font-weight:1000;color:#ffe185}
+
+
+#bubbleCheckPanel{
+  position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);
+  display:none;width:min(520px,88vw);padding:15px;border-radius:18px;
+  background:rgba(3,15,23,.88);border:1px solid rgba(145,231,255,.55);
+  text-align:center;pointer-events:auto
+}
+#bubbleWindow{
+  position:relative;height:145px;margin:8px auto 10px;border-radius:14px;
+  overflow:hidden;background:linear-gradient(rgba(25,75,92,.32),rgba(9,27,37,.68));
+  border:1px solid rgba(255,255,255,.18)
+}
+.bubble{
+  position:absolute;bottom:-18px;border:2px solid rgba(220,250,255,.92);
+  border-radius:50%;background:rgba(202,244,255,.16);
+  animation:bubbleRise 1.7s linear forwards
+}
+@keyframes bubbleRise{
+  from{transform:translateY(0) scale(.8);opacity:.95}
+  to{transform:translateY(-165px) scale(1.25);opacity:0}
+}
+#bubbleStatus{font-weight:1000;font-size:17px;color:#dff8ff}
+#bubbleTimer{margin-top:4px;font-size:13px;color:#9eddec}
+#purgePumpButton{
+  margin-top:10px;min-width:150px;min-height:48px;border-radius:13px;
+  border:2px solid #d8edf2;background:#245e74;color:#fff;font-weight:1000;
+  font-size:16px;touch-action:manipulation
+}
+#purgePumpButton.needPump{
+  animation:purgePulse .55s ease-in-out infinite alternate;
+  border-color:#ffe06f;background:#795b14;color:#fff6b3
+}
+@keyframes purgePulse{from{transform:scale(.96)}to{transform:scale(1.05)}}
+
+/* Weather */
+#weatherBadge{
+  position:absolute;top:12px;right:12px;z-index:40;display:none;
+  padding:8px 11px;border-radius:999px;background:rgba(18,32,42,.74);
+  border:1px solid rgba(180,225,245,.42);color:#e7f6ff;font:900 12px/1 system-ui,sans-serif;
+  pointer-events:none
+}
+#weatherBadge.show{display:block}
+
+
+/* Engine-oil tutorial */
+#engineOilPanel{
+  position:absolute;inset:0;z-index:84;display:none;pointer-events:none;
+  font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#fff;
+}
+#engineOilPanel.active{display:block}
+#engineScene{
+  position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);
+  width:min(720px,94vw);height:min(530px,67vh);border-radius:22px;
+  overflow:hidden;background:
+    radial-gradient(circle at 52% 56%,rgba(38,74,86,.9),rgba(6,18,25,.98) 62%),
+    linear-gradient(#0b2531,#07131b);
+  border:1px solid rgba(142,225,255,.48);
+  box-shadow:0 18px 55px rgba(0,0,0,.55);pointer-events:auto;
+}
+#engineBay{
+  position:absolute;left:14%;right:14%;top:17%;bottom:10%;
+  border-radius:40% 40% 18% 18% / 18% 18% 12% 12%;
+  background:linear-gradient(145deg,#2e3c42,#10191d 52%,#26383f);
+  border:3px solid #586a70;box-shadow:inset 0 0 30px rgba(0,0,0,.55)
+}
+.enginePart{position:absolute;border-radius:12px;background:#18262c;border:2px solid #53656c}
+#engineBlock{left:31%;top:27%;width:38%;height:42%;background:linear-gradient(145deg,#4a5558,#202a2d)}
+#engineTop{left:36%;top:20%;width:29%;height:13%;border-radius:18px;background:#303b3e}
+#enginePulley{left:43%;top:62%;width:15%;aspect-ratio:1;border-radius:50%;background:#111;border:7px solid #66757a}
+#engineFilter{right:21%;top:40%;width:10%;height:22%;border-radius:20px;background:#202528}
+#engineWire1{left:24%;top:34%;width:20%;height:7px;transform:rotate(-18deg);background:#b94338;border:none}
+#engineWire2{right:25%;top:30%;width:18%;height:7px;transform:rotate(22deg);background:#d1a23c;border:none}
+
+#cowlingLid{
+  position:absolute;left:11%;right:11%;top:9%;height:48%;z-index:8;
+  border-radius:44% 44% 19% 19% / 22% 22% 14% 14%;
+  background:linear-gradient(155deg,#252b30,#080b0d 58%,#222b30);
+  border:3px solid #434d52;box-shadow:0 18px 28px rgba(0,0,0,.55);
+  transition:transform .72s cubic-bezier(.2,.8,.2,1),opacity .55s ease;
+}
+#cowlingLid::before{
+  content:"YAMAHA";position:absolute;left:50%;top:32%;transform:translateX(-50%);
+  font-weight:1000;letter-spacing:.15em;font-size:clamp(20px,5vw,38px);color:#dce2e4
+}
+#cowlingLid.open{transform:translateY(-105%) rotate(-4deg);opacity:.12}
+.cowlingLatch{
+  position:absolute;z-index:12;width:78px;height:48px;border-radius:13px;
+  border:3px solid #ffe06a;background:rgba(255,208,56,.17);color:#fff3a0;
+  font-weight:1000;font-size:12px;pointer-events:auto;touch-action:manipulation;
+  animation:hotspotPulse .65s ease-in-out infinite alternate
+}
+.cowlingLatch.done{border-color:#71efac;color:#8ff4bd;background:rgba(60,220,130,.16);animation:none}
+#frontCowlingLatch{left:13%;top:46%}
+#rearCowlingLatch{right:13%;top:46%}
+
+#dipstickTube{
+  position:absolute;left:38%;top:39%;width:42px;height:42px;z-index:16;
+  border-radius:50%;border:3px solid #ffe06a;background:rgba(255,204,53,.15);
+  display:none;pointer-events:auto;animation:hotspotPulse .65s ease-in-out infinite alternate;
+  transform:translate(-50%,-50%);touch-action:manipulation
+}
+#dipstickTube::after{
+  content:"";position:absolute;left:50%;top:50%;width:12px;height:12px;border-radius:50%;
+  transform:translate(-50%,-50%);background:#171717;border:2px solid #bbb
+}
+#dipstickDrag{
+  position:absolute;left:25%;top:29%;width:44%;height:38%;z-index:15;
+  display:none;object-fit:contain;transform:rotate(-7deg);transform-origin:44% 48%;
+  pointer-events:auto;touch-action:none;filter:drop-shadow(0 8px 8px rgba(0,0,0,.55));
+  user-select:none;-webkit-user-drag:none
+}
+#extractorHose{
+  position:absolute;left:37.4%;top:38.7%;width:10px;height:0;z-index:17;
+  border-radius:999px;background:linear-gradient(90deg,#1a6078,#83d5ed,#194a62);
+  box-shadow:0 0 0 2px rgba(0,0,0,.35);transform-origin:top center;
+  transform:rotate(13deg);transition:height .7s ease;pointer-events:none
+}
+#extractorHose.inserted{height:47%}
+#extractorHose::after{
+  content:"";position:absolute;left:-12px;bottom:-22px;width:34px;height:34px;border-radius:50%;
+  background:#16485b;border:4px solid #9cdae8
+}
+#engineOilStatus{
+  position:absolute;left:50%;bottom:13px;transform:translateX(-50%);
+  width:min(620px,90%);padding:10px 14px;border-radius:14px;text-align:center;
+  background:rgba(2,12,18,.82);border:1px solid rgba(152,224,248,.42);
+  font-weight:900;color:#def5ff;pointer-events:none
+}
+#engineOilDone{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  z-index:25;display:none;width:min(480px,82%);padding:20px;border-radius:20px;
+  background:rgba(3,18,27,.96);border:2px solid #76eab0;text-align:center;
+  box-shadow:0 15px 45px rgba(0,0,0,.55);pointer-events:auto
+}
+#engineOilDone b{display:block;font-size:clamp(22px,5vw,34px);color:#78efb1;margin-bottom:8px}
+#engineOilDone button{
+  margin-top:12px;min-height:44px;padding:9px 15px;border-radius:12px;
+  border:1px solid #beeafa;background:#1d6079;color:#fff;font-weight:1000
+}
+
+
+#extractorChallenge{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  z-index:30;display:none;width:min(520px,86%);padding:18px;border-radius:20px;
+  background:rgba(4,18,27,.95);border:1px solid rgba(142,225,255,.56);
+  box-shadow:0 15px 45px rgba(0,0,0,.5);text-align:center;pointer-events:auto
+}
+#extractorChallenge h3{margin:0 0 7px;font-size:clamp(20px,4vw,30px)}
+#vacuumGauge{
+  position:relative;height:36px;margin:14px 0 10px;border-radius:999px;
+  background:
+    linear-gradient(90deg,
+      #762f2f 0 22%,
+      #806321 22% 37%,
+      #197a46 37% 63%,
+      #806321 63% 78%,
+      #762f2f 78% 100%);
+  border:3px solid #d9e6e9;overflow:hidden
+}
+#vacuumNeedle{
+  position:absolute;top:-5px;bottom:-5px;width:7px;border-radius:6px;
+  left:8%;background:white;box-shadow:0 0 8px rgba(255,255,255,.95);
+}
+#extractorPumpBtn{
+  min-width:160px;min-height:58px;border-radius:15px;border:3px solid #d7eef4;
+  background:#235f77;color:#fff;font-size:20px;font-weight:1000;touch-action:manipulation
+}
+#extractorPumpBtn:active{transform:scale(.96)}
+#extractorCount{margin-top:10px;font-weight:1000;font-size:19px;color:#ffe37b}
+#extractorFeedback{min-height:24px;margin-top:6px;font-weight:900;color:#cceefa}
+
+
+#manateeYell{
+  position:absolute;left:50%;top:20%;transform:translate(-50%,-50%) scale(.85);
+  z-index:55;display:none;padding:10px 15px;border-radius:15px;
+  background:rgba(255,255,255,.94);color:#111;font:1000 22px/1 system-ui,sans-serif;
+  box-shadow:0 10px 28px rgba(0,0,0,.45);pointer-events:none;
+}
+#manateeYell.show{
+  display:block;
+  animation:manateeYellPop 1.6s ease both;
+}
+#manateeYell::after{
+  content:"";position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);
+  border-left:12px solid transparent;border-right:12px solid transparent;
+  border-top:14px solid rgba(255,255,255,.94);
+}
+@keyframes manateeYellPop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.55)}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}
+  25%,78%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(.9)}
+}
+
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button id="fullscreenBtn" type="button">FULL SCREEN</button>
+<button id="musicCtl" type="button">MUSIC: ON</button>
+
+<div id="cutsceneOverlay">
+  <video id="jobCutscene" playsinline preload="auto" src="first_job_call.mp4"></video>
+  <button id="skipCutscene" type="button">SKIP</button>
+</div>
+<div id="firstJobPopup">
+  <div class="big">YOUR FIRST JOB!</div>
+  <div class="sub">Annual service • Follow the waypoint</div>
+</div>
+
+
+<div id="arrivalCutsceneOverlay">
+  <video id="arrivalCutsceneVideo" playsinline preload="auto" src="boat_arrival.mp4"></video>
+  <button id="skipArrivalCutscene" type="button">SKIP</button>
+</div>
+<div id="jobStartPopup">
+  <div class="big">START THE ANNUAL SERVICE</div>
+  <div class="sub">The outboard is ready • first job setup begins</div>
+</div>
+<audio id="boatDaddyMusic" preload="auto" loop src="boat_daddy_rick.mp3"></audio>
+
+<div id="serviceOverlay">
+  <div id="levelControls">
+    <div id="levelAngle">MOTOR ANGLE: 22°</div>
+    <button id="levelLeft" class="levelArrow" type="button">↶</button>
+    <button id="levelRight" class="levelArrow" type="button">↷</button>
+  </div>
+
+  <button id="topScrewHotspot" class="screwHotspot" type="button" aria-label="Upper gearcase screw"></button>
+  <button id="bottomScrewHotspot" class="screwHotspot" type="button" aria-label="Lower gearcase screw"></button>
+
+  <div id="oilCatchGame">
+    <div id="oilDrainPoint" title="Lower drain/fill hole"></div>
+    <div id="oilStream"></div>
+    <div id="oilPan"></div>
+    <div id="windReadout">WIND: CALM</div>
+    <div id="catchReadout">DRAIN: 0%</div>
+    <div id="spillMeter"><div id="spillFill"></div></div>
+  </div>
+
+  <div id="pumpPanel">
+    <button id="pumpButton" type="button">PUMP</button>
+    <div id="pumpCount">0 / 15</div>
+  </div>
+
+
+  <div id="bubbleCheckPanel">
+    <div id="bubbleStatus">CHECKING FOR AIR BUBBLES…</div>
+    <div id="bubbleWindow"></div>
+    <div id="bubbleTimer">Keep watching the upper vent.</div>
+    <button id="purgePumpButton" type="button">PUMP</button>
+  </div>
+
+  <div id="serviceDone">
+    <div class="doneBig">GEAR OIL COMPLETE ✓</div>
+    <div class="doneNext">NEXT WE DO: ENGINE OIL CHANGE + REPLACE OIL FILTER</div>
+    <button id="finishServiceSection" class="serviceBtn" type="button">CONTINUE</button>
+  </div>
+
+  <div id="serviceCard">
+    <div id="serviceTitle">ANNUAL SERVICE</div>
+    <div id="serviceText"></div>
+    <div id="serviceProgress"></div>
+    <div id="serviceButtons"></div>
+  </div>
+</div>
+
+
+<div id="engineOilPanel">
+  <div id="engineScene">
+    <div id="engineBay">
+      <div id="engineTop" class="enginePart"></div>
+      <div id="engineBlock" class="enginePart"></div>
+      <div id="enginePulley" class="enginePart"></div>
+      <div id="engineFilter" class="enginePart"></div>
+      <div id="engineWire1" class="enginePart"></div>
+      <div id="engineWire2" class="enginePart"></div>
+    </div>
+
+    <div id="cowlingLid"></div>
+    <button id="frontCowlingLatch" class="cowlingLatch" type="button">FRONT<br>LATCH</button>
+    <button id="rearCowlingLatch" class="cowlingLatch" type="button">REAR<br>LATCH</button>
+
+    <img id="dipstickDrag" draggable="false"
+      src="data:image/webp;base64,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" alt="engine oil dipstick">
+    <button id="dipstickTube" type="button" aria-label="Dipstick tube"></button>
+    <div id="extractorHose"></div>
+
+    <div id="engineOilStatus">ENGINE OIL — OPEN THE COWLING</div>
+
+
+    <div id="extractorChallenge">
+      <h3>BUILD VACUUM</h3>
+      <div>Tap <b>PUMP</b> when the needle is in the green zone.</div>
+      <div id="vacuumGauge"><div id="vacuumNeedle"></div></div>
+      <button id="extractorPumpBtn" type="button">PUMP</button>
+      <div id="extractorCount">0 / 15 GOOD PUMPS</div>
+      <div id="extractorFeedback"></div>
+    </div>
+
+    <div id="engineOilDone">
+      <b>EXTRACTOR HOSE INSERTED ✓</b>
+      The engine is opened, the dipstick is out, and the extractor hose is in the dipstick tube.
+      <br><button id="engineOilPauseBtn" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="mouseHint">CLICK GAME TO USE MOUSE CAMERA</div>
+<div id="crosshair"></div>
+<div id="weatherBadge">RAIN • GUSTY WIND</div>
+<div id="manateeYell">FUCK YOU!</div>
+<div id="hud"><div class="panel"><div class="title">DOCKYARD DECEPTION — MARINA</div><div class="small">Explore the marina. The first call comes after 15 walking steps, 20 running steps, one jump, and either a backflip or breakdance.</div><div class="status" id="animStatus">Loading Rick…</div><span class="badge" id="speedBadge">WALK MODE</span> <span class="badge" id="jobBadge">TRAINING W 0/15 • R 0/20 • JUMP ○ • TRICK ○</span></div></div>
+<div id="tips"><div class="panel small"><b>CONTROLS</b><br><span class="key">WASD</span> move &nbsp; <span class="key">SHIFT</span> run &nbsp; <span class="key">SPACE</span> jump<br><span class="key">1</span> backflip <span class="key">2</span> breakdance <span class="key">3</span> stomp <span class="key">4</span> catch breath<br><span class="key">Q</span> quick turn <span class="key">C</span> force customer call<br><span style="color:#b8d4de">PC: hold Shift to run, F or 1 = backflip, B or 2 = breakdance. Mobile: keep moving with the left stick and HOLD RUN with another finger; FLIP and DANCE now have their own buttons.</span></div></div>
+<div id="desktopActions"><div class="chip">1 Backflip</div><div class="chip">2 Breakdance</div><div class="chip">3 Stomp</div><div class="chip">4 Catch Breath</div><div class="chip">Q Quick Turn</div></div>
+<div id="mobile">
+  <div class="joyBase" id="joy"><div class="joyKnob" id="joyKnob"></div></div>
+  <div class="joyBase" id="joyRight"><div class="joyKnob" id="joyRightKnob"></div></div>
+  <div class="actionGrid minimalActions">
+   <button class="act primary" data-action="runToggle">HOLD RUN</button>
+   <button class="act primary" data-action="jump">JUMP</button>
+   <button class="act trick" data-action="backflip">FLIP</button>
+   <button class="act trick" data-action="breakdance">DANCE</button>
+  </div>
+</div>
+<div id="loader"><div id="loaderCard" class="panel"><div class="title">BUILDING RICK…</div><div class="small" style="display:block;margin-top:6px">Loading the 3D model and animation clips.</div><div class="bar"><i id="loadBar"></i></div><div class="loadMsg" id="loadMsg">Starting…</div></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="rick_01.js"></script>
+<script src="rick_02.js"></script>
+<script src="rick_03.js"></script>
+<script src="rick_04.js"></script>
+<script src="rick_finish.js"></script>
+<script src="gage_run_b64_01.js"></script>
+<script src="gage_run_b64_02.js"></script>
+<script src="gage_run_b64_03.js"></script>
+<script src="gage_run_b64_04.js"></script>
+<script src="gage_run_b64_finish.js"></script>
+<script src="gage_idle_b64_01.js"></script>
+<script src="gage_idle_b64_02.js"></script>
+<script src="gage_idle_b64_03.js"></script>
+<script src="gage_idle_b64_04.js"></script>
+<script src="gage_idle_b64_finish.js"></script>
+<script src="outboard_b64_01.js"></script>
+<script src="outboard_b64_02.js"></script>
+<script src="outboard_b64_finish.js"></script>
+<script src="pontoon_b64_01.js"></script>
+<script src="pontoon_b64_02.js"></script>
+<script src="pontoon_b64_finish.js"></script>
+<script src="manatee_boat_b64_01.js"></script>
+<script src="manatee_boat_b64_finish.js"></script>
+<script src="extra_boat_1_b64_01.js"></script>
+<script src="extra_boat_1_b64_finish.js"></script>
+<script src="extra_boat_2_b64_01.js"></script>
+<script src="extra_boat_2_b64_finish.js"></script>
+<script src="extra_boat_3_b64_01.js"></script>
+<script src="extra_boat_3_b64_02.js"></script>
+<script src="extra_boat_3_b64_finish.js"></script>
+<script src="phone_b64_01.js"></script>
+<script src="phone_b64_finish.js"></script>
+<script>
+
+window.addEventListener('error',e=>{
+  const lm=document.getElementById('loadMsg');
+  if(lm){
+    lm.classList.add('error');
+    lm.textContent='STARTUP ERROR: '+(e.message||'Unknown error');
+  }
+});
+window.addEventListener('unhandledrejection',e=>{
+  const lm=document.getElementById('loadMsg');
+  if(lm){
+    lm.classList.add('error');
+    const reason=e.reason && (e.reason.message||e.reason);
+    lm.textContent='LOAD ERROR: '+(reason||'Unknown promise error');
+  }
+});
+
+
+const EMBEDDED=window.EMBEDDED;
+const PONTOON_B64=window.PONTOON_B64;
+if(!window.THREE){document.getElementById('loadMsg').textContent='Could not load the 3D engine. Check internet and reopen the file.';throw new Error('THREE failed to load');}
+if(!THREE.GLTFLoader){document.getElementById('loadMsg').textContent='Could not load the 3D model loader. Check internet and reopen the file.';throw new Error('GLTFLoader failed to load');}
+
+const stage=document.getElementById('stage');
+const loaderUI=document.getElementById('loader');
+const loadBar=document.getElementById('loadBar');
+const loadMsg=document.getElementById('loadMsg');
+const animStatus=document.getElementById('animStatus');
+const speedBadge=document.getElementById('speedBadge');
+const jobBadge=document.getElementById('jobBadge');
+const fullscreenBtn=document.getElementById('fullscreenBtn');
+async function enterGameFullscreen(){
+  try{
+    const el=document.documentElement;
+    if(!document.fullscreenElement){
+      if(el.requestFullscreen) await el.requestFullscreen({navigationUI:'hide'});
+      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }
+    if(screen.orientation && screen.orientation.lock){
+      try{await screen.orientation.lock('landscape');}catch(e){}
+    }
+  }catch(e){}
+}
+function syncFullscreenButton(){
+  if(fullscreenBtn) fullscreenBtn.textContent=document.fullscreenElement?'EXIT FULL SCREEN':'FULL SCREEN';
+}
+fullscreenBtn?.addEventListener('click',async e=>{
+  e.preventDefault();e.stopPropagation();
+  if(document.fullscreenElement){
+    try{await document.exitFullscreen();}catch(err){}
+  }else{
+    await enterGameFullscreen();
+  }
+  syncFullscreenButton();
+});
+document.addEventListener('fullscreenchange',syncFullscreenButton);
+
+const cutsceneOverlay=document.getElementById('cutsceneOverlay');
+const jobCutscene=document.getElementById('jobCutscene');
+const skipCutscene=document.getElementById('skipCutscene');
+const firstJobPopup=document.getElementById('firstJobPopup');
+const arrivalCutsceneOverlay=document.getElementById('arrivalCutsceneOverlay');
+const arrivalCutsceneVideo=document.getElementById('arrivalCutsceneVideo');
+const skipArrivalCutscene=document.getElementById('skipArrivalCutscene');
+const jobStartPopup=document.getElementById('jobStartPopup');
+const serviceOverlay=document.getElementById('serviceOverlay');
+const serviceCard=document.getElementById('serviceCard');
+const serviceTitle=document.getElementById('serviceTitle');
+const serviceText=document.getElementById('serviceText');
+const serviceProgress=document.getElementById('serviceProgress');
+const serviceButtons=document.getElementById('serviceButtons');
+const levelControls=document.getElementById('levelControls');
+const levelAngle=document.getElementById('levelAngle');
+const levelLeft=document.getElementById('levelLeft');
+const levelRight=document.getElementById('levelRight');
+const topScrewHotspot=document.getElementById('topScrewHotspot');
+const bottomScrewHotspot=document.getElementById('bottomScrewHotspot');
+const oilCatchGame=document.getElementById('oilCatchGame');
+const oilStream=document.getElementById('oilStream');
+const oilPan=document.getElementById('oilPan');
+const windReadout=document.getElementById('windReadout');
+const catchReadout=document.getElementById('catchReadout');
+const spillFill=document.getElementById('spillFill');
+const pumpPanel=document.getElementById('pumpPanel');
+const pumpButton=document.getElementById('pumpButton');
+const pumpCount=document.getElementById('pumpCount');
+const bubbleCheckPanel=document.getElementById('bubbleCheckPanel');
+const bubbleWindow=document.getElementById('bubbleWindow');
+const bubbleStatus=document.getElementById('bubbleStatus');
+const bubbleTimer=document.getElementById('bubbleTimer');
+const purgePumpButton=document.getElementById('purgePumpButton');
+const serviceDone=document.getElementById('serviceDone');
+const weatherBadge=document.getElementById('weatherBadge');
+const manateeYell=document.getElementById('manateeYell');
+const finishServiceSection=document.getElementById('finishServiceSection');
+const engineOilPanel=document.getElementById('engineOilPanel');
+const cowlingLid=document.getElementById('cowlingLid');
+const frontCowlingLatch=document.getElementById('frontCowlingLatch');
+const rearCowlingLatch=document.getElementById('rearCowlingLatch');
+const dipstickDrag=document.getElementById('dipstickDrag');
+const dipstickTube=document.getElementById('dipstickTube');
+const extractorHose=document.getElementById('extractorHose');
+const engineOilStatus=document.getElementById('engineOilStatus');
+const extractorChallenge=document.getElementById('extractorChallenge');
+const vacuumGauge=document.getElementById('vacuumGauge');
+const vacuumNeedle=document.getElementById('vacuumNeedle');
+const extractorPumpBtn=document.getElementById('extractorPumpBtn');
+const extractorCount=document.getElementById('extractorCount');
+const extractorFeedback=document.getElementById('extractorFeedback');
+const engineOilDone=document.getElementById('engineOilDone');
+const engineOilPauseBtn=document.getElementById('engineOilPauseBtn');
+const boatDaddyMusic=document.getElementById('boatDaddyMusic');
+const musicCtl=document.getElementById('musicCtl');
+boatDaddyMusic.volume=.58;
+let musicWanted=true;
+let musicStarted=false;
+
+async function startMusicFromGesture(){
+  if(!musicWanted || musicStarted) return;
+  try{
+    await boatDaddyMusic.play();
+    musicStarted=true;
+    musicCtl.textContent='MUSIC: ON';
+  }catch(e){}
+}
+
+musicCtl.addEventListener('click',async e=>{
+  e.stopPropagation();
+  musicWanted=!musicWanted;
+  if(musicWanted){
+    musicCtl.textContent='MUSIC: ON';
+    try{
+      await boatDaddyMusic.play();
+      musicStarted=true;
+    }catch(e){}
+  }else{
+    boatDaddyMusic.pause();
+    musicCtl.textContent='MUSIC: OFF';
+  }
+});
+
+// Browsers block autoplay until the first real click/tap/key press.
+addEventListener('pointerdown',startMusicFromGesture,{once:true});
+addEventListener('keydown',startMusicFromGesture,{once:true});
+
+const mouseHint=document.getElementById('mouseHint');
+const crosshair=document.getElementById('crosshair');
+
+function b64ToAB(b64){const s=atob(b64),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u.buffer}
+const gltfLoader=new THREE.GLTFLoader();
+function parseGLB(b64){return new Promise((resolve,reject)=>gltfLoader.parse(b64ToAB(b64),'',resolve,reject))}
+
+const MANATEE_BOAT_B64=window.MANATEE_BOAT_B64;
+const GAGE_RUN_B64=window.GAGE_RUN_B64;
+const GAGE_IDLE_B64=window.GAGE_IDLE_B64;
+
+
+const PHONE_B64=window.PHONE_B64;
+const EXTRA_BOAT_1_B64=window.EXTRA_BOAT_1_B64;
+const EXTRA_BOAT_2_B64=window.EXTRA_BOAT_2_B64;
+const EXTRA_BOAT_3_B64=window.EXTRA_BOAT_3_B64;
+const OUTBOARD_B64=window.OUTBOARD_B64;
+
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x153147);scene.fog=new THREE.FogExp2(0x6d8290,.0085);
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.05,220);
+scene.add(camera);
+const clock=new THREE.Clock();
+
+// Sunset sky dome: deep blue overhead, peach/pink horizon like a Florida marina evening.
+const skyGeo=new THREE.SphereGeometry(150,32,20);
+const skyMat=new THREE.ShaderMaterial({
+  side:THREE.BackSide,
+  depthWrite:false,
+  uniforms:{
+    topColor:{value:new THREE.Color(0x263f69)},
+    midColor:{value:new THREE.Color(0xd67d86)},
+    horizonColor:{value:new THREE.Color(0xffad72)},
+    lowColor:{value:new THREE.Color(0x6b8390)}
+  },
+  vertexShader:`varying vec3 vWorld;void main(){vec4 w=modelMatrix*vec4(position,1.0);vWorld=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
+  fragmentShader:`varying vec3 vWorld;uniform vec3 topColor;uniform vec3 midColor;uniform vec3 horizonColor;uniform vec3 lowColor;
+  void main(){
+    float h=normalize(vWorld).y;
+    vec3 c;
+    if(h>0.28)c=mix(midColor,topColor,smoothstep(0.28,0.90,h));
+    else if(h>-0.05)c=mix(horizonColor,midColor,smoothstep(-0.05,0.28,h));
+    else c=mix(lowColor,horizonColor,smoothstep(-0.35,-0.05,h));
+    gl_FragColor=vec4(c,1.0);
+  }`
+});
+const skyDome=new THREE.Mesh(skyGeo,skyMat);scene.add(skyDome);
+
+// Lighting tuned for warm sunset.
+scene.add(new THREE.HemisphereLight(0xffd8bf,0x18313a,1.55));
+const sun=new THREE.DirectionalLight(0xffb36b,4.25);sun.position.set(-24,16,-28);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-36;sun.shadow.camera.right=36;sun.shadow.camera.top=36;sun.shadow.camera.bottom=-36;scene.add(sun);
+scene.add(new THREE.AmbientLight(0x6c86a8,.42));
+
+// Water: darker blue-green, glossy sunset reflections, broad gentle marina chop.
+const waterGeo=new THREE.PlaneGeometry(170,170,56,56);waterGeo.rotateX(-Math.PI/2);
+const waterMat=new THREE.MeshPhysicalMaterial({
+  color:0x176a7d,roughness:.18,metalness:.12,clearcoat:.72,clearcoatRoughness:.16,
+  transparent:true,opacity:.95,side:THREE.DoubleSide
+});
+const water=new THREE.Mesh(waterGeo,waterMat);water.position.y=-.42;water.receiveShadow=true;scene.add(water);
+const waterBase=Float32Array.from(waterGeo.attributes.position.array);
+
+// Long orange sunset reflection lane.
+const reflectionMat=new THREE.MeshBasicMaterial({color:0xffa45e,transparent:true,opacity:.10,depthWrite:false,blending:THREE.AdditiveBlending});
+const sunsetReflection=new THREE.Mesh(new THREE.PlaneGeometry(5.5,72),reflectionMat);
+sunsetReflection.rotation.x=-Math.PI/2;sunsetReflection.position.set(-7,-.385,-15);sunsetReflection.rotation.z=.05;scene.add(sunsetReflection);
+
+// Procedural Florida-style marina dock.
+// Built from lightweight repeated geometry instead of a giant AI dock mesh.
+const dockVisuals=new THREE.Group();
+scene.add(dockVisuals);
+
+const mainDockHalfWidth=1.4;
+const mainDockMinZ=-30.2;
+const mainDockMaxZ=30.2;
+const fingerZs=[-23,-14,-5,4,13,22];
+const fingerLength=8.0;
+const fingerHalfWidth=.68;
+const eastSpineX=13.0;
+const eastSpineHalfWidth=.95;
+const eastSpineMinZ=-10.0;
+const eastSpineMaxZ=27.0;
+const eastFingerZs=[-6,5,16];
+const eastFingerLength=8.2;
+const upperDeckY=2.62;
+
+const woodMat=new THREE.MeshStandardMaterial({color:0x8b613f,roughness:.86,metalness:.0});
+const woodDarkMat=new THREE.MeshStandardMaterial({color:0x5b3a26,roughness:.92,metalness:.0});
+const pilingMat=new THREE.MeshStandardMaterial({color:0x6b513d,roughness:.95});
+const capMat=new THREE.MeshStandardMaterial({color:0x15191b,roughness:.55,metalness:.18});
+const metalMat=new THREE.MeshStandardMaterial({color:0x5b666b,roughness:.35,metalness:.72});
+const pedestalMat=new THREE.MeshStandardMaterial({color:0xe5e0d0,roughness:.55});
+const pedestalTopMat=new THREE.MeshStandardMaterial({color:0x2a4960,roughness:.5});
+
+function makeBox(w,h,d,x,y,z,mat,parent=dockVisuals){
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  mesh.position.set(x,y,z);
+  mesh.castShadow=true;
+  mesh.receiveShadow=true;
+  parent.add(mesh);
+  return mesh;
+}
+
+// Main dock boards: transverse boards, slight gaps, subtle color variation.
+const mainBoardDepth=.285;
+const mainBoardGap=.035;
+const mainStep=mainBoardDepth+mainBoardGap;
+const mainCount=Math.floor((mainDockMaxZ-mainDockMinZ)/mainStep);
+const mainBoardGeo=new THREE.BoxGeometry(mainDockHalfWidth*2,.16,mainBoardDepth);
+const mainBoards=new THREE.InstancedMesh(mainBoardGeo,woodMat,mainCount);
+const boardMatrix=new THREE.Matrix4();
+const boardColor=new THREE.Color();
+for(let i=0;i<mainCount;i++){
+  const z=mainDockMinZ+i*mainStep+mainStep*.5;
+  boardMatrix.makeTranslation(0,.08,z);
+  mainBoards.setMatrixAt(i,boardMatrix);
+  const shade=.88+(i%7)*.018;
+  boardColor.setRGB(.47*shade,.31*shade,.19*shade);
+  mainBoards.setColorAt(i,boardColor);
+}
+mainBoards.castShadow=true;
+mainBoards.receiveShadow=true;
+dockVisuals.add(mainBoards);
+
+// Main dock longitudinal structure under the boards.
+const mainRailLength=(mainDockMaxZ-mainDockMinZ)+.4;
+makeBox(.18,.30,mainRailLength,-1.12,-.10,0,woodDarkMat);
+makeBox(.18,.30,mainRailLength, 1.12,-.10,0,woodDarkMat);
+makeBox(.16,.22,mainRailLength, 0.00,-.13,0,woodDarkMat);
+
+// Finger piers on both sides, like the reference marina.
+const fingerBoardWidth=.285;
+const fingerBoardGap=.035;
+const fingerStep=fingerBoardWidth+fingerBoardGap;
+const boardsPerFinger=Math.floor(fingerLength/fingerStep);
+const fingerGeo=new THREE.BoxGeometry(fingerBoardWidth,.15,fingerHalfWidth*2);
+const fingerBoards=new THREE.InstancedMesh(fingerGeo,woodMat,boardsPerFinger*fingerZs.length*2);
+let fingerIndex=0;
+for(const z0 of fingerZs){
+  for(const side of [-1,1]){
+    const startX=side*(mainDockHalfWidth+.02);
+    for(let j=0;j<boardsPerFinger;j++){
+      const dist=j*fingerStep+fingerStep*.5;
+      const x=startX+side*dist;
+      boardMatrix.makeTranslation(x,.075,z0);
+      fingerBoards.setMatrixAt(fingerIndex,boardMatrix);
+      const shade=.90+((j+fingerIndex)%6)*.016;
+      boardColor.setRGB(.48*shade,.32*shade,.20*shade);
+      fingerBoards.setColorAt(fingerIndex,boardColor);
+      fingerIndex++;
+    }
+    // Two dark support rails under each finger.
+    makeBox(fingerLength,.22,.14,side*(mainDockHalfWidth+fingerLength*.5),-.12,z0-.46,woodDarkMat);
+    makeBox(fingerLength,.22,.14,side*(mainDockHalfWidth+fingerLength*.5),-.12,z0+.46,woodDarkMat);
+  }
+}
+fingerBoards.castShadow=true;
+fingerBoards.receiveShadow=true;
+dockVisuals.add(fingerBoards);
+
+// Shore-side wider landing pad.
+for(let iz=0;iz<10;iz++){
+  const z=mainDockMinZ-.9+iz*.32;
+  makeBox(5.1,.16,.285,0,.08,z,woodMat);
+}
+
+// Tall timber pilings with dark caps.
+const pilingPositions=[];
+for(let z=-28;z<=28;z+=5){
+  pilingPositions.push([-1.68,z],[1.68,z]);
+}
+for(const z0 of fingerZs){
+  for(const side of [-1,1]){
+    const outer=side*(mainDockHalfWidth+fingerLength+.15);
+    pilingPositions.push([outer,z0-.72],[outer,z0+.72]);
+    const mid=side*(mainDockHalfWidth+fingerLength*.52);
+    pilingPositions.push([mid,z0-.72],[mid,z0+.72]);
+  }
+}
+const pileGeo=new THREE.CylinderGeometry(.16,.19,3.3,12);
+const pileMesh=new THREE.InstancedMesh(pileGeo,pilingMat,pilingPositions.length);
+const capGeo=new THREE.ConeGeometry(.24,.25,12);
+const capMesh=new THREE.InstancedMesh(capGeo,capMat,pilingPositions.length);
+for(let i=0;i<pilingPositions.length;i++){
+  const [x,z]=pilingPositions[i];
+  boardMatrix.makeTranslation(x,.48,z);
+  pileMesh.setMatrixAt(i,boardMatrix);
+  boardMatrix.makeTranslation(x,2.25,z);
+  capMesh.setMatrixAt(i,boardMatrix);
+}
+pileMesh.castShadow=true;
+pileMesh.receiveShadow=true;
+capMesh.castShadow=true;
+dockVisuals.add(pileMesh,capMesh);
+
+// Cleats near each slip entrance/end.
+const cleatGeo=new THREE.BoxGeometry(.34,.08,.09);
+const cleatPositions=[];
+for(const z0 of fingerZs){
+  for(const side of [-1,1]){
+    cleatPositions.push([side*1.18,z0-.48],[side*1.18,z0+.48]);
+    cleatPositions.push([side*(mainDockHalfWidth+fingerLength-.45),z0-.48]);
+    cleatPositions.push([side*(mainDockHalfWidth+fingerLength-.45),z0+.48]);
+  }
+}
+const cleats=new THREE.InstancedMesh(cleatGeo,metalMat,cleatPositions.length);
+for(let i=0;i<cleatPositions.length;i++){
+  const [x,z]=cleatPositions[i];
+  boardMatrix.makeTranslation(x,.22,z);
+  cleats.setMatrixAt(i,boardMatrix);
+}
+cleats.castShadow=true;
+dockVisuals.add(cleats);
+
+// Shore-power pedestals down the main dock.
+for(const z0 of [-24.5,-15.5,-6.5,2.5,11.5,20.5]){
+  const ped=new THREE.Group();
+  makeBox(.34,.68,.30,0,.54,0,pedestalMat,ped);
+  makeBox(.38,.12,.34,0,.94,0,pedestalTopMat,ped);
+  const outlet=new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,.025,12),metalMat);
+  outlet.rotation.x=Math.PI/2;
+  outlet.position.set(.12,.60,.16);
+  ped.add(outlet);
+  ped.position.set(-1.02,0,z0);
+  dockVisuals.add(ped);
+}
+
+// A couple of safety ladders.
+for(const z0 of [-19.5,-9.5,8.5,18.5]){
+  const ladder=new THREE.Group();
+  const railGeo=new THREE.CylinderGeometry(.025,.025,1.15,8);
+  for(const x of [-.18,.18]){
+    const rail=new THREE.Mesh(railGeo,metalMat);
+    rail.position.set(x,-.28,0);
+    ladder.add(rail);
+  }
+  for(let r=0;r<4;r++){
+    const rung=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.36,8),metalMat);
+    rung.rotation.z=Math.PI/2;
+    rung.position.set(0,-.70+r*.27,0);
+    ladder.add(rung);
+  }
+  ladder.position.set(1.48,.10,z0);
+  dockVisuals.add(ladder);
+}
+
+// Extra exploration docks: an east-side parallel spine connected by a long cross-dock.
+function addDeckSlabs(xMin,xMax,zMin,zMax,y=.08){
+  const boardDepth=.30;
+  for(let z=zMin;z<=zMax;z+=.34){
+    makeBox(xMax-xMin,.16,boardDepth,(xMin+xMax)/2,y,z,woodMat);
+  }
+}
+
+// Cross-dock linking the main pier to the east-side pier.
+addDeckSlabs(mainDockHalfWidth-.12,eastSpineX+eastSpineHalfWidth,25.95,27.45,.08);
+
+// East-side long pier.
+addDeckSlabs(eastSpineX-eastSpineHalfWidth,eastSpineX+eastSpineHalfWidth,eastSpineMinZ,eastSpineMaxZ,.08);
+for(let z=eastSpineMinZ;z<=eastSpineMaxZ;z+=5.2){
+  const p1=new THREE.Mesh(new THREE.CylinderGeometry(.15,.18,3.15,12),pilingMat);
+  p1.position.set(eastSpineX-eastSpineHalfWidth-.25,.48,z);p1.castShadow=true;dockVisuals.add(p1);
+  const p2=p1.clone();p2.position.x=eastSpineX+eastSpineHalfWidth+.25;dockVisuals.add(p2);
+}
+
+// More finger docks off the east pier.
+for(const z0 of eastFingerZs){
+  addDeckSlabs(eastSpineX+eastSpineHalfWidth-.08,eastSpineX+eastSpineHalfWidth+eastFingerLength,z0-fingerHalfWidth,z0+fingerHalfWidth,.075);
+  for(const px of [eastSpineX+eastSpineHalfWidth+eastFingerLength*.52,eastSpineX+eastSpineHalfWidth+eastFingerLength+.15]){
+    for(const dz of [-.70,.70]){
+      const p=new THREE.Mesh(new THREE.CylinderGeometry(.15,.18,3.2,12),pilingMat);
+      p.position.set(px,.48,z0+dz);p.castShadow=true;dockVisuals.add(p);
+    }
+  }
+}
+
+// Raised two-level observation / service deck near Rick's spawn.
+const upperDeckXMin=-12.6,upperDeckXMax=-4.25,upperDeckZMin=-29.2,upperDeckZMax=-17.2;
+for(let z=upperDeckZMin;z<=upperDeckZMax;z+=.34){
+  makeBox(upperDeckXMax-upperDeckXMin,.18,.30,(upperDeckXMin+upperDeckXMax)/2,upperDeckY-.09,z,woodMat);
+}
+// Support beams and posts make the upper level obvious from the main dock.
+for(const x of [upperDeckXMin+.35,upperDeckXMax-.35]){
+  for(const z of [upperDeckZMin+.45,(upperDeckZMin+upperDeckZMax)/2,upperDeckZMax-.45]){
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(.13,.16,3.25,10),pilingMat);
+    post.position.set(x,1.03,z);post.castShadow=true;dockVisuals.add(post);
+  }
+}
+makeBox(upperDeckXMax-upperDeckXMin,.30,.18,(upperDeckXMin+upperDeckXMax)/2,upperDeckY-.36,upperDeckZMin+.15,woodDarkMat);
+makeBox(upperDeckXMax-upperDeckXMin,.30,.18,(upperDeckXMin+upperDeckXMax)/2,upperDeckY-.36,upperDeckZMax-.15,woodDarkMat);
+
+// Wide staircase right beside the spawn end of the main dock.
+const stairX0=-1.18,stairX1=-4.48,stairZ=-24.6,stairHalfWidth=1.02,stairSteps=14;
+for(let i=0;i<stairSteps;i++){
+  const t=i/(stairSteps-1);
+  const x=THREE.MathUtils.lerp(stairX0,stairX1,t);
+  const y=THREE.MathUtils.lerp(.18,upperDeckY,t);
+  makeBox(.50,.17,stairHalfWidth*2,x,y-.085,stairZ,woodMat);
+}
+
+// Railings, posts and a small canopy make the upper deck easy to spot.
+for(const x of [upperDeckXMin+.08,upperDeckXMax-.08]){
+  makeBox(.08,1.05,upperDeckZMax-upperDeckZMin,x,upperDeckY+.52,(upperDeckZMin+upperDeckZMax)/2,metalMat);
+}
+makeBox(upperDeckXMax-upperDeckXMin,.08,.08,(upperDeckXMin+upperDeckXMax)/2,upperDeckY+1.02,upperDeckZMin+.10,metalMat);
+makeBox(upperDeckXMax-upperDeckXMin,.08,.08,(upperDeckXMin+upperDeckXMax)/2,upperDeckY+1.02,upperDeckZMax-.10,metalMat);
+const canopyMat=new THREE.MeshStandardMaterial({color:0x294c62,roughness:.55,metalness:.16});
+makeBox(4.2,.16,3.4,-8.35,upperDeckY+2.35,-21.1,canopyMat);
+for(const x of [-10.15,-6.55])for(const z of [-22.4,-19.8]){
+  makeBox(.10,2.3,.10,x,upperDeckY+1.15,z,metalMat);
+}
+const upperLight1=new THREE.PointLight(0xffc47b,1.8,10);upperLight1.position.set(-7.2,upperDeckY+2.05,-24.5);scene.add(upperLight1);
+const upperLight2=new THREE.PointLight(0xffc47b,1.5,10);upperLight2.position.set(-9.6,upperDeckY+2.05,-19.1);scene.add(upperLight2);
+
+// Walkable surface test for the expanded marina.
+function getWalkSurfaceY(x,z){
+  const dockY=.18;
+
+  // Main pier.
+  if(Math.abs(x)<=mainDockHalfWidth-.04 && z>=mainDockMinZ+.08 && z<=mainDockMaxZ-.08) return dockY;
+
+  // Original finger piers.
+  for(const z0 of fingerZs){
+    if(Math.abs(z-z0)<=fingerHalfWidth-.02){
+      if(x>=mainDockHalfWidth-.30 && x<=mainDockHalfWidth+fingerLength-.10) return dockY;
+      if(x<=-mainDockHalfWidth+.30 && x>=-(mainDockHalfWidth+fingerLength-.10)) return dockY;
+    }
+    if(Math.abs(z-z0)<=fingerHalfWidth+.10 && Math.abs(x)<=mainDockHalfWidth+.38) return dockY;
+  }
+
+  // Cross-dock to east pier.
+  if(z>=25.92 && z<=27.48 && x>=mainDockHalfWidth-.25 && x<=eastSpineX+eastSpineHalfWidth+.08) return dockY;
+
+  // East-side long pier.
+  if(Math.abs(x-eastSpineX)<=eastSpineHalfWidth-.02 && z>=eastSpineMinZ && z<=eastSpineMaxZ) return dockY;
+
+  // East-side finger piers.
+  for(const z0 of eastFingerZs){
+    if(Math.abs(z-z0)<=fingerHalfWidth-.02 &&
+       x>=eastSpineX-eastSpineHalfWidth*.15 &&
+       x<=eastSpineX+eastSpineHalfWidth+eastFingerLength-.08) return dockY;
+  }
+
+  // Staircase. Height follows Rick as he climbs.
+  const stairMinX=Math.min(stairX0,stairX1)-.20,stairMaxX=Math.max(stairX0,stairX1)+.20;
+  if(x>=stairMinX && x<=stairMaxX && Math.abs(z-stairZ)<=stairHalfWidth-.04){
+    const t=THREE.MathUtils.clamp((x-stairX0)/(stairX1-stairX0),0,1);
+    return THREE.MathUtils.lerp(dockY,upperDeckY,t);
+  }
+
+  // Raised upper deck.
+  if(x>=upperDeckXMin+.12 && x<=upperDeckXMax-.12 && z>=upperDeckZMin+.12 && z<=upperDeckZMax-.12) return upperDeckY;
+
+  return null;
+}
+function isOnDock(x,z){return getWalkSurfaceY(x,z)!==null;}
+
+// Sky deco
+const sunGlow=new THREE.Mesh(new THREE.SphereGeometry(3.6,24,16),new THREE.MeshBasicMaterial({color:0xff985d,transparent:true,opacity:.20,depthWrite:false}));
+sunGlow.position.set(-28,9,-62);scene.add(sunGlow);
+const sunDisc=new THREE.Mesh(new THREE.SphereGeometry(1.7,24,16),new THREE.MeshBasicMaterial({color:0xfff0bf}));
+sunDisc.position.set(-28,9,-61.5);scene.add(sunDisc);
+
+// Irregular Florida shoreline on the east side: low profile, not a giant box.
+const shoreMat=new THREE.MeshStandardMaterial({color:0x557a49,roughness:.98,metalness:0});
+const sandMat=new THREE.MeshStandardMaterial({color:0xc8b78e,roughness:1.0,metalness:0});
+const pathMat=new THREE.MeshStandardMaterial({color:0xa6a29a,roughness:.94,metalness:0});
+const seawallMat=new THREE.MeshStandardMaterial({color:0x747879,roughness:.9,metalness:0});
+
+function makeGroundShape(points,mat,y){
+  const shape=new THREE.Shape();
+  shape.moveTo(points[0][0],points[0][1]);
+  for(let i=1;i<points.length;i++)shape.lineTo(points[i][0],points[i][1]);
+  shape.closePath();
+  const mesh=new THREE.Mesh(new THREE.ShapeGeometry(shape),mat);
+  mesh.rotation.x=-Math.PI/2;
+  mesh.position.y=y;
+  mesh.receiveShadow=true;
+  scene.add(mesh);
+  return mesh;
+}
+
+makeGroundShape([
+  [28.2,-50],[62,-50],[62,50],[29.2,50],
+  [27.4,34],[29.0,18],[27.0,3],[28.8,-13],[26.9,-30]
+],shoreMat,-.285);
+
+makeGroundShape([
+  [26.1,-50],[30.0,-50],[28.8,-30],[30.5,-13],[28.5,3],
+  [30.4,18],[28.9,34],[31.0,50],[27.0,50],[25.7,34],
+  [27.1,18],[25.5,3],[27.0,-13],[25.2,-30]
+],sandMat,-.325);
+
+// Curving-looking marina promenade set well back from the water.
+const shoreWalk=new THREE.Mesh(new THREE.BoxGeometry(4.4,.10,82),pathMat);
+shoreWalk.position.set(35.0,-.18,0);shoreWalk.receiveShadow=true;scene.add(shoreWalk);
+
+// Low seawall segments along the uneven water edge.
+const wallPts=[[-30,26.3],[-15,27.2],[0,25.8],[15,27.3],[30,26.2]];
+for(let i=0;i<wallPts.length-1;i++){
+  const z1=wallPts[i][0],x1=wallPts[i][1],z2=wallPts[i+1][0],x2=wallPts[i+1][1];
+  const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz);
+  const wall=new THREE.Mesh(new THREE.BoxGeometry(len,.52,.24),seawallMat);
+  wall.position.set((x1+x2)/2,-.12,(z1+z2)/2);
+  wall.rotation.y=-Math.atan2(dz,dx);
+  wall.castShadow=true;wall.receiveShadow=true;scene.add(wall);
+}
+
+function makePalm(x,z,s=1){
+  const trunkMat=new THREE.MeshStandardMaterial({color:0x8a6437,roughness:.95});
+  const leafMat=new THREE.MeshStandardMaterial({color:0x2f7a3b,roughness:.92});
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.10*s,.16*s,2.8*s,8),trunkMat);
+  trunk.position.set(x,1.08*s-.22,z);trunk.castShadow=true;scene.add(trunk);
+  for(let i=0;i<7;i++){
+    const leaf=new THREE.Mesh(new THREE.BoxGeometry(1.55*s,.045*s,.25*s),leafMat);
+    leaf.position.set(x,2.42*s-.22,z);
+    leaf.rotation.y=(Math.PI*2/7)*i;
+    leaf.rotation.z=.44;
+    leaf.castShadow=true;scene.add(leaf);
+  }
+}
+[-36,-25,-14,-3,8,19,30,41].forEach((z,i)=>makePalm(33.0+(i%2)*4.2,z,.92+(i%3)*.08));
+
+// A few simple marina-side buildings break up the horizon.
+const buildingMat=new THREE.MeshStandardMaterial({color:0xd9d0c0,roughness:.82});
+const roofMat=new THREE.MeshStandardMaterial({color:0x8d5141,roughness:.76});
+function makeBuilding(x,z,w,d,h){
+  const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),buildingMat);
+  b.position.set(x,h/2-.25,z);b.castShadow=true;b.receiveShadow=true;scene.add(b);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*.72,1.15,4),roofMat);
+  roof.position.set(x,h+.32,z);roof.rotation.y=Math.PI/4;roof.castShadow=true;scene.add(roof);
+}
+makeBuilding(44,-22,7,6,4.2);
+makeBuilding(47,3,8,7,4.6);
+makeBuilding(42,27,6.5,5.5,3.8);
+
+
+const rainState={
+  active:false,lastCycle:-1,duration:45,windX:.48,windZ:.18,
+  windTargetX:.48,windTargetZ:.18,nextGust:0
+};
+let rainPoints=null,rainPositions=null;
+
+// Lightweight rain field. It follows Rick so mobile does not have to draw a huge weather volume.
+{
+  const rainCount=720;
+  rainPositions=new Float32Array(rainCount*3);
+  for(let i=0;i<rainCount;i++){
+    rainPositions[i*3]=(Math.random()-.5)*24;
+    rainPositions[i*3+1]=2+Math.random()*12;
+    rainPositions[i*3+2]=(Math.random()-.5)*30;
+  }
+  const rg=new THREE.BufferGeometry();
+  rg.setAttribute('position',new THREE.BufferAttribute(rainPositions,3));
+  const rm=new THREE.PointsMaterial({
+    color:0xc9e8ff,size:.055,transparent:true,opacity:.72,
+    depthWrite:false,sizeAttenuation:true
+  });
+  rainPoints=new THREE.Points(rg,rm);
+  rainPoints.visible=false;
+  rainPoints.frustumCulled=false;
+  scene.add(rainPoints);
+}
+
+function setRainActive(on,time){
+  if(rainState.active===on)return;
+  rainState.active=on;
+  if(rainPoints)rainPoints.visible=on;
+  weatherBadge?.classList.toggle('show',on);
+  if(on){
+    rainState.nextGust=time+.5;
+    rainState.windTargetX=(Math.random()<.5?-1:1)*(.35+Math.random()*.45);
+    rainState.windTargetZ=(Math.random()-.5)*.55;
+  }
+}
+
+function updateRain(dt,time){
+  // First storm at 5:00, then every 5 minutes. Each shower lasts 45 seconds.
+  const weatherTime=time-300;
+  const shouldRain=weatherTime>=0 && (weatherTime%300)<rainState.duration;
+  setRainActive(shouldRain,time);
+  if(!rainState.active||!rainPoints)return;
+
+  if(time>=rainState.nextGust){
+    rainState.nextGust=time+1.4+Math.random()*2.8;
+    rainState.windTargetX=(Math.random()<.5?-1:1)*(.28+Math.random()*.70);
+    rainState.windTargetZ=(Math.random()-.5)*.65;
+  }
+  rainState.windX=THREE.MathUtils.lerp(rainState.windX,rainState.windTargetX,Math.min(1,dt*1.2));
+  rainState.windZ=THREE.MathUtils.lerp(rainState.windZ,rainState.windTargetZ,Math.min(1,dt*1.2));
+
+  rainPoints.position.set(controller.pos.x,0,controller.pos.z);
+  const a=rainPositions;
+  for(let i=0;i<a.length;i+=3){
+    a[i]+=rainState.windX*dt*2.1;
+    a[i+1]-=dt*(10+Math.random()*2.3);
+    a[i+2]+=rainState.windZ*dt*2.1;
+    if(a[i+1]<.05){
+      a[i]=(Math.random()-.5)*24-rainState.windX*4;
+      a[i+1]=8+Math.random()*8;
+      a[i+2]=(Math.random()-.5)*30-rainState.windZ*4;
+    }
+    if(a[i]>14)a[i]-=28;if(a[i]<-14)a[i]+=28;
+    if(a[i+2]>17)a[i+2]-=34;if(a[i+2]<-17)a[i+2]+=34;
+  }
+  rainPoints.geometry.attributes.position.needsUpdate=true;
+}
+
+let actor=null,mixer=null,currentAction=null,currentName='';const actions={};let actorScale=1;
+let manateeBoat=null;
+let gageNPC=null,gageMixer=null,gageRunAction=null,gageIdleAction=null;
+const gageState={
+  mode:'none',target:null,idleUntil:0,speed:1.05,lastNode:-1,currentNode:0,
+  nextNode:1,loaded:false
+};
+
+let jobBoatTarget=null,jobWaypoint=null,jobOutboard=null;
+const firstJobState={started:false,cutscenePlaying:false,waypointActive:false};
+
+const firstJobServicePoint=new THREE.Vector3(1.05,.18,-9.55);
+
+const arrivalState={triggered:false,cutscenePlaying:false,finished:false};
+const serviceState={
+  active:false,step:'none',motorTilt:.38,
+  screwsRemoved:{top:false,bottom:false},
+  install:{top:false,bottom:false},
+  pumpTaps:0,catchProgress:0,spill:0,panX:.5,wind:0,
+  oilLoop:0,lastOilTime:0,cardTimer:0,
+  purgeDuration:0,purgeStart:0,purgeEnd:0,nextPurgePump:0,
+  purgeNeedPump:false,purgePumpDeadline:0,purgePumps:0,bubbleLoop:0
+,
+  engineOil:{
+    active:false,frontLatch:false,rearLatch:false,
+    dipstickRemoved:false,dragging:false,startX:0,startY:0,
+    baseLeft:25,baseTop:29,hoseInserted:false,
+    extractorPumps:0,gaugePhase:0,gaugeDir:1,gaugeLoop:0
+  }
+};
+const manateeState={
+  targetIndex:1,baseY:.02,currentSpeed:.9,targetSpeed:.9,
+  nextSpeedChange:3.0,nextBurst:8.0,burstUntil:0,
+  nextYell:22+Math.random()*38,lastYell:0
+};
+
+let phoneRoot=null,phoneScreenMesh=null,phoneScreenTexture=null;
+const callState={active:false,triggered:false,accepted:false,walkSteps:0,runSteps:0,walkDist:0,runDist:0,jumped:false,trick:false};
+const callRaycaster=new THREE.Raycaster(),callPointer=new THREE.Vector2();
+function trainingReady(){
+  return callState.walkSteps>=15 && callState.runSteps>=20 && callState.jumped && callState.trick;
+}
+function updateTrainingHUD(){
+  if(callState.triggered)return;
+  jobBadge.textContent=`TRAINING W ${Math.min(15,callState.walkSteps)}/15 • R ${Math.min(20,callState.runSteps)}/20 • JUMP ${callState.jumped?'✓':'○'} • TRICK ${callState.trick?'✓':'○'}`;
+}
+const controller={pos:new THREE.Vector3(0,.18,-27.0),yaw:0,vertical:0,groundY:.18,onGround:true,jumping:false,special:false,specialTimer:0,specialName:'',runToggle:false,mobileRunHeld:false};
+const cameraRig={yaw:Math.PI,pitch:.38,distance:5.4};
+const keys={};const input={x:0,y:0,lookX:0,lookY:0};
+let idleStillTime=0;
+let alternateIdleActive=false;
+const ALT_IDLE_DELAY=15.0; // only after Rick has truly been idle for 15 seconds
+
+
+
+// Gage uses a connected dock graph so he never cuts across the water.
+// Main-dock nodes connect to nearby finger-pier nodes; finger ends force him back.
+const gageDockNodes=[
+  {p:new THREE.Vector3(.72,.18,-27),n:[1]},
+  {p:new THREE.Vector3(.72,.18,-23),n:[0,2,3]},
+  {p:new THREE.Vector3(6.35,.18,-23),n:[1],idle:true},
+  {p:new THREE.Vector3(.72,.18,-14),n:[1,4,5]},
+  {p:new THREE.Vector3(-6.35,.18,-14),n:[3],idle:true},
+  {p:new THREE.Vector3(.72,.18,-5),n:[3,6,7]},
+  {p:new THREE.Vector3(6.35,.18,-5),n:[5],idle:true},
+  {p:new THREE.Vector3(.72,.18,4),n:[5,8,9]},
+  {p:new THREE.Vector3(-6.35,.18,4),n:[7],idle:true},
+  {p:new THREE.Vector3(.72,.18,13),n:[7,10,11]},
+  {p:new THREE.Vector3(6.35,.18,13),n:[9],idle:true},
+  {p:new THREE.Vector3(.72,.18,22),n:[9,12,13]},
+  {p:new THREE.Vector3(-6.35,.18,22),n:[11],idle:true},
+  {p:new THREE.Vector3(.72,.18,26.55),n:[11,14]},
+  {p:new THREE.Vector3(13,.18,26.55),n:[13,15]},
+  {p:new THREE.Vector3(13,.18,16),n:[14,16,17]},
+  {p:new THREE.Vector3(20,.18,16),n:[15],idle:true},
+  {p:new THREE.Vector3(13,.18,5),n:[15,18,19]},
+  {p:new THREE.Vector3(20,.18,5),n:[17],idle:true},
+  {p:new THREE.Vector3(13,.18,-6),n:[17,20]},
+  {p:new THREE.Vector3(20,.18,-6),n:[19],idle:true}
+];
+
+function gageSetAction(mode){
+  if(!gageNPC||!gageRunAction||!gageIdleAction)return;
+  if(gageState.mode===mode)return;
+  if(mode==='idle'){
+    gageRunAction.fadeOut(.18);
+    gageIdleAction.reset().setLoop(THREE.LoopRepeat,Infinity).fadeIn(.18).play();
+  }else{
+    gageIdleAction.fadeOut(.22);
+    gageRunAction.reset().setLoop(THREE.LoopRepeat,Infinity).fadeIn(.22).play();
+    gageRunAction.setEffectiveTimeScale(.88+Math.random()*.10);
+  }
+  gageState.mode=mode;
+}
+
+
+function gageChooseNextNode(){
+  const node=gageDockNodes[gageState.currentNode];
+  if(!node)return;
+  let choices=node.n.filter(i=>i!==gageState.lastNode);
+  if(!choices.length)choices=node.n.slice();
+
+  // Don't pick a point right beside Rick.
+  const far=choices.filter(i=>gageDockNodes[i].p.distanceTo(controller.pos)>4.0);
+  if(far.length)choices=far;
+
+  const pick=choices[Math.floor(Math.random()*choices.length)];
+  gageState.lastNode=gageState.currentNode;
+  gageState.nextNode=pick;
+  gageState.target=gageDockNodes[pick].p.clone();
+  gageSetAction('run'); // this action slot now contains the casual walk
+}
+
+function gageStartIdle(time){
+  gageState.target=null;
+  gageState.idleUntil=time+(10+Math.random()*18); // idle roughly 10–28 seconds
+  gageSetAction('idle');
+}
+
+function updateGage(dt,time){
+  if(!gageState.loaded||!gageNPC||!gageMixer)return;
+  gageMixer.update(dt);
+
+  if(gageState.mode==='idle'){
+    // He generally stays put. If Rick is nearly touching him, he'll leave sooner.
+    if(gageNPC.position.distanceTo(controller.pos)<1.55){
+      gageState.idleUntil=Math.min(gageState.idleUntil,time+.8);
+    }
+    if(time>=gageState.idleUntil)gageChooseNextNode();
+    return;
+  }
+
+  if(!gageState.target){
+    gageStartIdle(time);
+    return;
+  }
+
+  const dir=new THREE.Vector3().subVectors(gageState.target,gageNPC.position);
+  dir.y=0;
+  const dist=dir.length();
+
+  if(dist<.16){
+    gageNPC.position.copy(gageState.target);
+    gageState.currentNode=gageState.nextNode;
+    gageStartIdle(time);
+    return;
+  }
+
+  dir.normalize();
+  const nextPos=gageNPC.position.clone().addScaledVector(dir,gageState.speed*dt);
+
+  // Rick gets right-of-way. Gage simply waits rather than clipping through him.
+  if(nextPos.distanceTo(controller.pos)<2.8){
+    gageSetAction('idle');
+    gageState.idleUntil=time+1.25;
+    return;
+  }
+
+  const surfaceY=getWalkSurfaceY(nextPos.x,nextPos.z);
+  if(surfaceY===null){
+    gageStartIdle(time);
+    return;
+  }
+
+  gageNPC.position.copy(nextPos);
+  gageNPC.position.y=surfaceY;
+  gageNPC.rotation.y=Math.atan2(dir.x,dir.z)+Math.PI;
+}
+
+function cleanClip(clip){const c=clip.clone();for(const tr of c.tracks){if(tr.name.includes('mixamorig:Hips.position')){for(let i=0;i<tr.values.length;i+=3){tr.values[i]=tr.values[0];tr.values[i+2]=tr.values[2]}}}return c}
+function bestClip(gltf){return gltf.animations.find(a=>!a.name.endsWith('.001'))||gltf.animations[0]}
+function play(name,{once=false,fade=.16}={}){const a=actions[name];if(!a||currentAction===a)return;if(currentAction)currentAction.fadeOut(fade);a.reset();a.enabled=true;a.setEffectiveWeight(1);a.setEffectiveTimeScale(1);a.setLoop(once?THREE.LoopOnce:THREE.LoopRepeat,once?1:Infinity);a.clampWhenFinished=once;a.fadeIn(fade).play();currentAction=a;currentName=name;animStatus.textContent='Animation: '+name.toUpperCase()}
+
+const callCanvas=document.createElement('canvas');
+callCanvas.width=512;callCanvas.height=900;
+const callCtx=callCanvas.getContext('2d');
+
+function roundedRect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.closePath();
+}
+function drawPhoneScreen(mode='calling'){
+  const ctx=callCtx,W=callCanvas.width,H=callCanvas.height;
+  const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#063c57');bg.addColorStop(.55,'#09283b');bg.addColorStop(1,'#05141d');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  // subtle glow
+  const g=ctx.createRadialGradient(W/2,250,10,W/2,250,250);g.addColorStop(0,'rgba(74,226,213,.28)');g.addColorStop(1,'rgba(74,226,213,0)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+  ctx.textAlign='center';ctx.fillStyle='white';
+  if(mode==='calling'){
+    ctx.font='700 40px system-ui';ctx.fillText('CUSTOMER CALLING',W/2,350);
+    ctx.font='600 29px system-ui';ctx.fillStyle='#bfeaf4';ctx.fillText('Annual Service',W/2,398);
+
+    ctx.strokeStyle='#67f1df';ctx.lineWidth=8;ctx.beginPath();ctx.arc(W/2,205,86,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#d9f7ff';ctx.beginPath();ctx.arc(W/2,180,28,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(W/2,242,58,40,0,Math.PI,Math.PI*2);ctx.fill();
+
+    roundedRect(ctx,45,610,185,140,38);ctx.fillStyle='#1ed760';ctx.fill();
+    roundedRect(ctx,282,610,185,140,38);ctx.fillStyle='#f04444';ctx.fill();
+    ctx.fillStyle='white';ctx.font='800 26px system-ui';ctx.fillText('ACCEPT',137,695);ctx.fillText('DECLINE',374,695);
+    ctx.font='700 44px system-ui';ctx.fillText('☎',137,655);ctx.save();ctx.translate(374,655);ctx.rotate(Math.PI);ctx.fillText('☎',0,0);ctx.restore();
+    ctx.font='500 20px system-ui';ctx.fillStyle='#96c8d6';ctx.fillText('Tap a button',W/2,820);
+  }else if(mode==='accepted'){
+    ctx.fillStyle='#52f18c';ctx.font='900 44px system-ui';ctx.fillText('JOB ACCEPTED',W/2,390);
+    ctx.fillStyle='white';ctx.font='700 30px system-ui';ctx.fillText('Annual Service',W/2,445);
+  }else{
+    ctx.fillStyle='#ff7777';ctx.font='900 44px system-ui';ctx.fillText('CALL DECLINED',W/2,410);
+  }
+  if(phoneScreenTexture)phoneScreenTexture.needsUpdate=true;
+}
+
+
+function createJobWaypoint(){
+  if(jobWaypoint)return jobWaypoint;
+  const group=new THREE.Group();
+  const ringMat=new THREE.MeshBasicMaterial({color:0x69efff,transparent:true,opacity:.92,depthTest:false});
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.50,.085,12,32),ringMat);
+  ring.rotation.x=Math.PI/2;ring.renderOrder=900;group.add(ring);
+  const arrowMat=new THREE.MeshBasicMaterial({color:0xffd66b,depthTest:false});
+  const arrow=new THREE.Mesh(new THREE.ConeGeometry(.24,.55,18),arrowMat);
+  arrow.rotation.x=Math.PI;arrow.position.y=.60;arrow.renderOrder=901;group.add(arrow);
+  const beamMat=new THREE.MeshBasicMaterial({color:0x69efff,transparent:true,opacity:.22,depthTest:false});
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,2.4,10),beamMat);
+  beam.position.y=-.62;beam.renderOrder=899;group.add(beam);
+  group.visible=false;scene.add(group);jobWaypoint=group;return group;
+}
+function activateFirstJobWaypoint(){
+  if(!jobBoatTarget)return;
+  createJobWaypoint();
+  firstJobState.waypointActive=true;jobWaypoint.visible=true;
+  jobBadge.textContent='JOB 1: ANNUAL SERVICE';
+  animStatus.textContent='Follow the waypoint to the customer’s boat';
+}
+function showFirstJobPopup(){
+  firstJobPopup.classList.remove('show');void firstJobPopup.offsetWidth;firstJobPopup.classList.add('show');
+  setTimeout(()=>firstJobPopup.classList.remove('show'),2700);
+}
+function finishFirstJobCutscene(){
+  if(!firstJobState.cutscenePlaying)return;
+  firstJobState.cutscenePlaying=false;jobCutscene.pause();cutsceneOverlay.style.display='none';
+  boatDaddyMusic.volume=.58;showFirstJobPopup();activateFirstJobWaypoint();
+}
+async function playFirstJobCutscene(){
+  if(firstJobState.started)return;
+  firstJobState.started=true;firstJobState.cutscenePlaying=true;document.exitPointerLock?.();
+  cutsceneOverlay.style.display='flex';boatDaddyMusic.volume=.08;jobCutscene.currentTime=0;
+  try{await jobCutscene.play();}catch(e){finishFirstJobCutscene();}
+}
+jobCutscene.addEventListener('ended',finishFirstJobCutscene);
+skipCutscene.addEventListener('click',finishFirstJobCutscene);
+
+
+
+function serviceButton(label,fn,alt=false){
+  const b=document.createElement('button');
+  b.type='button';b.className='serviceBtn'+(alt?' alt':'');b.textContent=label;
+  b.addEventListener('click',fn);serviceButtons.appendChild(b);return b;
+}
+function clearServiceUI(){
+  clearTimeout(serviceState.cardTimer);
+  serviceButtons.innerHTML='';
+  levelControls.style.display='none';
+  topScrewHotspot.style.display='none';
+  bottomScrewHotspot.style.display='none';
+  oilCatchGame.style.display='none';
+  pumpPanel.style.display='none';
+  bubbleCheckPanel.style.display='none';
+  cancelAnimationFrame(serviceState.bubbleLoop);
+  serviceDone.style.display='none';
+}
+function setServiceText(title,text,progress=''){
+  serviceTitle.textContent=title;
+  serviceText.innerHTML=text;
+  serviceProgress.textContent=progress;
+}
+function showServiceCardForFiveSeconds(title,text,progress,next){
+  clearTimeout(serviceState.cardTimer);
+  serviceCard.style.display='block';
+  setServiceText(title,text,progress);
+  serviceButtons.innerHTML='';
+  serviceState.cardTimer=setTimeout(()=>{
+    serviceCard.style.display='none';
+    if(next)next();
+  },2500);
+}
+
+function startAnnualServiceTutorial(){
+  serviceState.active=true;serviceState.step='intro';
+  document.exitPointerLock?.();
+  idleStillTime=0;
+  if(alternateIdleActive)cancelAlternateIdle();
+  play('idle',{fade:.08});
+  if(actor)actor.visible=false;
+  if(jobOutboard){
+    jobOutboard.visible=true;
+    jobOutboard.position.set(.18,-.05,-2.55);
+    jobOutboard.rotation.set(0,Math.PI,0);
+  }
+  serviceOverlay.classList.add('active');
+  clearServiceUI();
+  showServiceCardForFiveSeconds(
+    'YOUR FIRST ANNUAL SERVICE',
+    'An annual service covers <b>engine oil + filter, lower-unit gear oil, spark plugs, fuel filter, inspections/grease points, prop & shaft checks, anodes/cooling checks, and corrosion protection.</b>',
+    'FIRST UP: LOWER-UNIT GEAR OIL',
+    startLevelMotor
+  );
+}
+
+
+function startLevelMotor(){
+  clearServiceUI();serviceState.step='level';serviceState.motorTilt=.38;
+  if(jobOutboard)jobOutboard.rotation.z=serviceState.motorTilt;
+  showServiceCardForFiveSeconds(
+    'STEP 1 — LEVEL THE OUTBOARD',
+    'Before draining or filling the gearcase, put the outboard <b>straight up and down</b>. The arrows will show you how the first time.',
+    'GET THE MOTOR TO 0°',
+    ()=>{levelControls.style.display='block';updateLevelAngle();}
+  );
+}
+
+function updateLevelAngle(){
+  const deg=Math.round(serviceState.motorTilt*180/Math.PI);
+  levelAngle.textContent=`MOTOR ANGLE: ${Math.abs(deg)}° ${Math.abs(deg)<=2?'✓':''}`;
+  if(jobOutboard)jobOutboard.rotation.z=serviceState.motorTilt;
+  if(Math.abs(serviceState.motorTilt)<=.035){
+    serviceState.motorTilt=0;if(jobOutboard)jobOutboard.rotation.z=0;
+    levelAngle.textContent='MOTOR LEVEL ✓';
+    setTimeout(startRemoveScrews,500);
+  }
+}
+levelLeft.addEventListener('click',()=>{
+  if(serviceState.step!=='level')return;
+  serviceState.motorTilt=Math.max(-.55,serviceState.motorTilt-.07);updateLevelAngle();
+});
+levelRight.addEventListener('click',()=>{
+  if(serviceState.step!=='level')return;
+  serviceState.motorTilt=Math.min(.55,serviceState.motorTilt+.07);updateLevelAngle();
+});
+
+
+function startRemoveScrews(){
+  clearServiceUI();serviceState.step='removeScrews';
+  serviceState.screwsRemoved.top=false;serviceState.screwsRemoved.bottom=false;
+  showServiceCardForFiveSeconds(
+    'STEP 2 — REMOVE BOTH GEARCASE SCREWS',
+    'The <b>upper vent screw is near the top of the lower unit</b>. The <b>drain/fill screw is at the bottom</b>. Tap both after this tip disappears.',
+    'UPPER VENT + LOWER DRAIN/FILL',
+    ()=>{topScrewHotspot.style.display='block';bottomScrewHotspot.style.display='block';}
+  );
+}
+
+function screwRemoved(which){
+  if(serviceState.step!=='removeScrews')return;
+  serviceState.screwsRemoved[which]=true;
+  (which==='top'?topScrewHotspot:bottomScrewHotspot).style.display='none';
+  const n=(serviceState.screwsRemoved.top?1:0)+(serviceState.screwsRemoved.bottom?1:0);
+  serviceProgress.textContent=`SCREWS REMOVED: ${n} / 2`;
+  if(n===2)setTimeout(startOilCatch,450);
+}
+topScrewHotspot.addEventListener('click',()=>{
+  if(serviceState.step==='removeScrews')screwRemoved('top');
+  else if(serviceState.step==='installScrews')installScrew('top');
+});
+bottomScrewHotspot.addEventListener('click',()=>{
+  if(serviceState.step==='removeScrews')screwRemoved('bottom');
+  else if(serviceState.step==='selectFill')selectBottomFill();
+  else if(serviceState.step==='installScrews')installScrew('bottom');
+});
+
+
+function startOilCatch(){
+  clearServiceUI();serviceState.step='catch';
+  serviceState.catchProgress=0;serviceState.spill=-3.0;serviceState.panX=.5;serviceState.wind=0;
+  showServiceCardForFiveSeconds(
+    'STEP 3 — CATCH THE OLD GEAR OIL',
+    'Keep the drain pan under the oil. <b>The wind will push the stream sideways</b>, so move the pan to keep catching it.',
+    'DON’T LET THE SPILL METER HIT 40%',
+    ()=>{
+      oilCatchGame.style.display='block';
+      oilPanDragging=false;
+      oilPan.style.left='50%';
+      oilDrainPoint.style.left='55%';
+      oilStream.style.left='55%';
+      oilStream.style.transform='translateX(-50%) rotate(0deg)';
+      spillFill.style.width='0%';
+      serviceState.lastOilTime=performance.now();
+      cancelAnimationFrame(serviceState.oilLoop);
+      serviceState.oilLoop=requestAnimationFrame(runOilCatch);
+    }
+  );
+}
+
+let oilPanDragging=false;
+function movePanFromPointer(e){
+  if(serviceState.step!=='catch')return;
+  const r=oilCatchGame.getBoundingClientRect();
+  serviceState.panX=Math.max(.08,Math.min(.92,(e.clientX-r.left)/r.width));
+  oilPan.style.left=(serviceState.panX*100)+'%';
+}
+oilCatchGame.addEventListener('pointerdown',e=>{
+  if(serviceState.step!=='catch')return;
+  oilPanDragging=true;
+  oilCatchGame.setPointerCapture?.(e.pointerId);
+  movePanFromPointer(e);
+});
+oilCatchGame.addEventListener('pointermove',e=>{
+  if(oilPanDragging)movePanFromPointer(e);
+});
+oilCatchGame.addEventListener('pointerup',e=>{
+  oilPanDragging=false;
+  oilCatchGame.releasePointerCapture?.(e.pointerId);
+});
+oilCatchGame.addEventListener('pointercancel',()=>{oilPanDragging=false;});
+function runOilCatch(now){
+  if(serviceState.step!=='catch')return;
+  const dt=Math.min(.05,(now-serviceState.lastOilTime)/1000||.016);serviceState.lastOilTime=now;
+  // Strong, shifting marina gusts, but the collision target now matches the VISIBLE oil stream.
+  serviceState.wind=
+    .92*Math.sin(now*.00185)+
+    .48*Math.sin(now*.0049+1.7)+
+    .26*Math.sin(now*.0107+4.1);
+
+  const absWind=Math.abs(serviceState.wind);
+  const streamX=THREE.MathUtils.clamp(.55+serviceState.wind*.22,.12,.88);
+  oilStream.style.transform=`translateX(-50%) rotate(${serviceState.wind*12}deg)`;
+  oilStream.style.left=(streamX*100)+'%';
+  oilDrainPoint.style.left=(streamX*100)+'%';
+
+  windReadout.textContent=
+    serviceState.wind>.65?'GUST: →→':
+    serviceState.wind>.18?'WIND: →':
+    serviceState.wind<-.65?'GUST: ←←':
+    serviceState.wind<-.18?'WIND: ←':'WIND: CALM';
+
+  const caught=Math.abs(serviceState.panX-streamX)<.09;
+  if(caught)serviceState.catchProgress+=dt;
+  else serviceState.spill+=dt*(5.5+absWind*1.8);
+
+  catchReadout.textContent=`DRAIN: ${Math.min(100,Math.round(serviceState.catchProgress/7*100))}%`;
+  spillFill.style.width=Math.min(100,serviceState.spill/40*100)+'%';
+
+  if(serviceState.spill>=40){
+    serviceState.step='catchFail';
+    oilPanDragging=false;
+    oilCatchGame.style.display='none';
+    serviceCard.style.display='block';
+    setServiceText(
+      'OIL SPILL',
+      'Too much gear oil missed the pan. The wind can move the stream fast — keep the pan directly under the visible stream.',
+      'SPILL LIMIT REACHED'
+    );
+    serviceButtons.innerHTML='';
+    serviceButton('TRY AGAIN',()=>{
+      serviceCard.style.display='none';
+      startOilCatch();
+    });
+    return;
+  }
+  if(serviceState.catchProgress>=7){
+    serviceState.step='catchDone';
+    oilCatchGame.style.display='none';
+    setTimeout(startSelectFill,350);
+    return;
+  }
+  serviceState.oilLoop=requestAnimationFrame(runOilCatch);
+}
+
+
+function startSelectFill(){
+  clearServiceUI();serviceState.step='selectFill';
+  showServiceCardForFiveSeconds(
+    'STEP 4 — FILL FROM THE BOTTOM',
+    'Gear oil is pumped <b>IN THROUGH THE LOWER DRAIN/FILL HOLE</b>. Tap the lower hole after this tip disappears.',
+    'FILL FROM THE LOWER HOLE',
+    ()=>{bottomScrewHotspot.style.display='block';}
+  );
+}
+
+function selectBottomFill(){
+  if(serviceState.step!=='selectFill')return;
+  bottomScrewHotspot.style.display='none';startPumpFill();
+}
+
+function startPumpFill(){
+  clearServiceUI();serviceState.step='pump';serviceState.pumpTaps=0;
+  showServiceCardForFiveSeconds(
+    'STEP 5 — PUMP IN NEW GEAR OIL',
+    'Pump from the bottom until oil reaches the upper vent. Start with <b>15 pumps</b>, then keep slight pressure on it while we watch for trapped air bubbles.',
+    '15 PUMPS',
+    ()=>{pumpPanel.style.display='block';pumpCount.textContent='0 / 15';serviceProgress.textContent='';}
+  );
+}
+
+pumpButton.addEventListener('click',()=>{
+  if(serviceState.step!=='pump')return;
+  serviceState.pumpTaps=Math.min(15,serviceState.pumpTaps+1);
+  pumpCount.textContent=`${serviceState.pumpTaps} / 15`;
+  serviceProgress.textContent=`PUMP: ${serviceState.pumpTaps} / 15`;
+  pumpButton.animate([{transform:'scale(1)'},{transform:'scale(.90)'},{transform:'scale(1)'}],{duration:120});
+  if(serviceState.pumpTaps>=15)setTimeout(startBubblePurge,350);
+});
+
+
+
+function spawnBubble(){
+  if(serviceState.step!=='bubblePurge')return;
+  const b=document.createElement('div');
+  b.className='bubble';
+  const size=8+Math.random()*17;
+  b.style.width=size+'px';b.style.height=size+'px';
+  b.style.left=(12+Math.random()*76)+'%';
+  b.style.animationDuration=(1.15+Math.random()*1.35)+'s';
+  bubbleWindow.appendChild(b);
+  setTimeout(()=>b.remove(),2800);
+}
+
+function scheduleNextPurgePump(now){
+  // Random pattern: sometimes quick, sometimes several seconds between pumps.
+  serviceState.nextPurgePump=now+1700+Math.random()*4800;
+  serviceState.purgeNeedPump=false;
+  purgePumpButton.classList.remove('needPump');
+  purgePumpButton.textContent='PUMP';
+}
+
+function startBubblePurge(){
+  clearServiceUI();
+  serviceState.step='bubblePurge';
+  serviceState.purgeDuration=5+Math.random()*25; // random 5–30 sec bubble-clear time
+  const now=performance.now();
+  serviceState.purgeStart=now;
+  serviceState.purgeEnd=now+serviceState.purgeDuration*1000;
+  serviceState.purgePumps=0;
+  bubbleWindow.innerHTML='';
+  purgePumpButton.style.display='';
+  bubbleCheckPanel.style.display='block';
+  bubbleStatus.textContent='CHECKING FOR AIR BUBBLES…';
+  bubbleTimer.textContent='Watch the upper vent and keep slight pressure on the pump.';
+  scheduleNextPurgePump(now);
+  serviceState.bubbleLoop=requestAnimationFrame(updateBubblePurge);
+}
+
+function updateBubblePurge(now){
+  if(serviceState.step!=='bubblePurge')return;
+
+  let remaining=Math.max(0,(serviceState.purgeEnd-now)/1000);
+  const progress=1-Math.max(0,Math.min(1,remaining/serviceState.purgeDuration));
+
+  // Lots of bubbles early; fewer as trapped air clears.
+  if(Math.random()<((1-progress)*.22+.02))spawnBubble();
+
+  if(!serviceState.purgeNeedPump && now>=serviceState.nextPurgePump && remaining>.7){
+    serviceState.purgeNeedPump=true;
+    serviceState.purgePumpDeadline=now+3000;
+    purgePumpButton.classList.add('needPump');
+    purgePumpButton.textContent='PUMP NOW';
+    bubbleStatus.textContent='KEEP PRESSURE — PUMP ONCE';
+  }
+
+  if(serviceState.purgeNeedPump){
+    // Completion pauses until the player gives the requested maintenance pump.
+    if(now>=serviceState.purgeEnd)serviceState.purgeEnd=now+300;
+    if(now>serviceState.purgePumpDeadline){
+      bubbleTimer.textContent='Oil settled a little — pump once to keep it at the vent.';
+    }
+  }else{
+    remaining=Math.max(0,(serviceState.purgeEnd-now)/1000);
+    bubbleStatus.textContent=remaining<2.2?'WATCHING FOR THE LAST BUBBLES…':'CHECKING FOR AIR BUBBLES…';
+    bubbleTimer.textContent=`Bubble check: ${Math.ceil(remaining)} sec`;
+  }
+
+  if(remaining<=0 && !serviceState.purgeNeedPump){
+    serviceState.step='bubbleClear';
+    purgePumpButton.classList.remove('needPump');
+    bubbleStatus.textContent='NO MORE BUBBLES ✓';
+    bubbleTimer.textContent='Clean gear oil is flowing from the upper vent.';
+    purgePumpButton.style.display='none';
+    setTimeout(startInstallScrews,1200);
+    return;
+  }
+
+  serviceState.bubbleLoop=requestAnimationFrame(updateBubblePurge);
+}
+
+purgePumpButton.addEventListener('click',()=>{
+  if(serviceState.step!=='bubblePurge')return;
+  serviceState.purgePumps++;
+  purgePumpButton.animate(
+    [{transform:'scale(1)'},{transform:'scale(.90)'},{transform:'scale(1)'}],
+    {duration:120}
+  );
+  if(serviceState.purgeNeedPump){
+    bubbleStatus.textContent='GOOD — KEEP WATCHING THE VENT';
+    scheduleNextPurgePump(performance.now());
+  }else{
+    // An extra pump can kick loose a couple small bubbles.
+    setTimeout(spawnBubble,40);
+    setTimeout(spawnBubble,180);
+  }
+});
+
+function startInstallScrews(){
+  clearServiceUI();serviceState.step='installScrews';
+  serviceState.install.top=false;serviceState.install.bottom=false;
+  showServiceCardForFiveSeconds(
+    'STEP 6 — INSTALL THE SCREWS',
+    'Install the <b>upper vent screw first while the pump is still connected</b>. Then remove the pump and install the lower screw.',
+    'UPPER FIRST — THEN LOWER',
+    ()=>{topScrewHotspot.style.display='block';}
+  );
+}
+
+function installScrew(which){
+  if(serviceState.step!=='installScrews')return;
+  if(which==='top'){
+    if(serviceState.install.top)return;
+    serviceState.install.top=true;topScrewHotspot.style.display='none';
+    bottomScrewHotspot.style.display='block';
+    serviceProgress.textContent='UPPER INSTALLED ✓ — NOW TAP LOWER';
+  }else{
+    if(!serviceState.install.top||serviceState.install.bottom)return;
+    serviceState.install.bottom=true;bottomScrewHotspot.style.display='none';
+    finishGearOil();
+  }
+}
+function finishGearOil(){
+  clearServiceUI();serviceState.step='done';
+  serviceCard.style.display='none';serviceDone.style.display='block';
+  jobBadge.textContent='GEAR OIL COMPLETE';
+}
+finishServiceSection.addEventListener('click',()=>{
+  idleStillTime=0;
+  if(alternateIdleActive)cancelAlternateIdle();
+  serviceDone.style.display='none';
+  serviceCard.style.display='';
+  jobBadge.textContent='ENGINE OIL CHANGE';
+  animStatus.textContent='Opening the engine for the oil change';
+  startEngineOilTutorial();
+});
+
+
+
+function updateExtractorGauge(){
+  if(serviceState.step!=='engineOilPump')return;
+  const s=serviceState.engineOil;
+  s.gaugePhase+=.018*s.gaugeDir;
+  if(s.gaugePhase>=1){s.gaugePhase=1;s.gaugeDir=-1;}
+  if(s.gaugePhase<=0){s.gaugePhase=0;s.gaugeDir=1;}
+  vacuumNeedle.style.left=(5+s.gaugePhase*90)+'%';
+  s.gaugeLoop=requestAnimationFrame(updateExtractorGauge);
+}
+
+function startExtractorPumpChallenge(){
+  const s=serviceState.engineOil;
+  serviceState.step='engineOilPump';
+  s.extractorPumps=0;
+  s.gaugePhase=.08;
+  s.gaugeDir=1;
+  extractorCount.textContent='0 / 15 GOOD PUMPS';
+  extractorFeedback.textContent='Hit the green zone.';
+  engineOilDone.style.display='none';
+  extractorChallenge.style.display='block';
+  cancelAnimationFrame(s.gaugeLoop);
+  s.gaugeLoop=requestAnimationFrame(updateExtractorGauge);
+}
+
+extractorPumpBtn.addEventListener('click',()=>{
+  if(serviceState.step!=='engineOilPump')return;
+  const s=serviceState.engineOil;
+  // Green zone is the center 26% of the gauge.
+  const good=s.gaugePhase>=.37 && s.gaugePhase<=.63;
+
+  extractorPumpBtn.animate(
+    [{transform:'scale(1)'},{transform:'scale(.91)'},{transform:'scale(1)'}],
+    {duration:130}
+  );
+
+  if(good){
+    s.extractorPumps++;
+    extractorFeedback.textContent=
+      s.extractorPumps>=15?'VACUUM BUILT ✓':
+      (Math.random()<.5?'GOOD PULL ✓':'SOLID VACUUM STROKE ✓');
+    extractorFeedback.style.color='#83efb1';
+    extractorCount.textContent=`${s.extractorPumps} / 15 GOOD PUMPS`;
+
+    if(s.extractorPumps>=15){
+      cancelAnimationFrame(s.gaugeLoop);
+      serviceState.step='engineOilVacuumBuilt';
+      setTimeout(()=>{
+        extractorChallenge.style.display='none';
+        engineOilDone.style.display='block';
+        engineOilDone.querySelector('b').textContent='VACUUM BUILT ✓';
+        engineOilDone.childNodes[2].textContent=' The extractor is under vacuum and ready to start pulling the old engine oil.';
+        engineOilStatus.textContent='EXTRACTOR VACUUM READY ✓';
+        jobBadge.textContent='ENGINE OIL: VACUUM BUILT';
+      },450);
+    }
+  }else{
+    extractorFeedback.textContent=
+      s.gaugePhase<.37?'TOO EARLY — LET PRESSURE BUILD':'TOO LATE — VACUUM DROPPED';
+    extractorFeedback.style.color='#ff9b86';
+    // Wrong taps do not count, but keep the challenge moving.
+  }
+});
+
+
+function resetEngineOilUI(){
+  const s=serviceState.engineOil;
+  s.frontLatch=false;s.rearLatch=false;s.dipstickRemoved=false;s.dragging=false;s.hoseInserted=false;
+  frontCowlingLatch.classList.remove('done');
+  rearCowlingLatch.classList.remove('done');
+  frontCowlingLatch.style.display='block';
+  rearCowlingLatch.style.display='block';
+  cowlingLid.classList.remove('open');
+  dipstickDrag.style.display='none';
+  dipstickDrag.style.left=s.baseLeft+'%';
+  dipstickDrag.style.top=s.baseTop+'%';
+  dipstickDrag.style.opacity='1';
+  dipstickTube.style.display='none';
+  extractorHose.classList.remove('inserted');
+  extractorChallenge.style.display='none';
+  cancelAnimationFrame(s.gaugeLoop);
+  engineOilDone.style.display='none';
+}
+
+function startEngineOilTutorial(){
+  clearServiceUI();
+  serviceDone.style.display='none';
+  serviceCard.style.display='block';
+  serviceState.active=true;
+  serviceState.step='engineOilCowling';
+  serviceState.engineOil.active=true;
+  resetEngineOilUI();
+
+  if(jobOutboard)jobOutboard.visible=false;
+  if(actor)actor.visible=false;
+
+  engineOilPanel.classList.add('active');
+  engineOilStatus.textContent='ENGINE OIL — OPEN THE COWLING';
+
+  showServiceCardForFiveSeconds(
+    'ENGINE OIL CHANGE',
+    'First open the engine. Tap the <b>front cowling latch</b> and the <b>rear cowling latch</b>.',
+    'RELEASE BOTH LATCHES',
+    ()=>{ serviceCard.style.display='none'; }
+  );
+}
+
+function checkCowlingOpen(){
+  const s=serviceState.engineOil;
+  if(!s.frontLatch||!s.rearLatch)return;
+  serviceState.step='engineOilDipstick';
+  cowlingLid.classList.add('open');
+  frontCowlingLatch.style.display='none';
+  rearCowlingLatch.style.display='none';
+  engineOilStatus.textContent='COWLING OPEN ✓';
+
+  setTimeout(()=>{
+    showServiceCardForFiveSeconds(
+      'REMOVE THE DIPSTICK',
+      'Grab the yellow dipstick handle and <b>pull your finger away from the engine</b> to pull the dipstick out.',
+      'DRAG THE DIPSTICK AWAY FROM THE ENGINE',
+      ()=>{
+        serviceCard.style.display='none';
+        dipstickDrag.style.display='block';
+        engineOilStatus.textContent='PULL THE DIPSTICK OUT';
+      }
+    );
+  },650);
+}
+
+frontCowlingLatch.addEventListener('click',()=>{
+  if(serviceState.step!=='engineOilCowling')return;
+  serviceState.engineOil.frontLatch=true;
+  frontCowlingLatch.classList.add('done');
+  frontCowlingLatch.textContent='FRONT ✓';
+  checkCowlingOpen();
+});
+rearCowlingLatch.addEventListener('click',()=>{
+  if(serviceState.step!=='engineOilCowling')return;
+  serviceState.engineOil.rearLatch=true;
+  rearCowlingLatch.classList.add('done');
+  rearCowlingLatch.textContent='REAR ✓';
+  checkCowlingOpen();
+});
+
+function dipstickPointerDown(e){
+  if(serviceState.step!=='engineOilDipstick'||serviceState.engineOil.dipstickRemoved)return;
+  e.preventDefault();
+  const s=serviceState.engineOil;
+  s.dragging=true;s.startX=e.clientX;s.startY=e.clientY;
+  dipstickDrag.setPointerCapture?.(e.pointerId);
+}
+function dipstickPointerMove(e){
+  const s=serviceState.engineOil;
+  if(!s.dragging)return;
+  e.preventDefault();
+  const dx=e.clientX-s.startX,dy=e.clientY-s.startY;
+  dipstickDrag.style.transform=`translate(${dx}px,${dy}px) rotate(-7deg)`;
+  const dist=Math.hypot(dx,dy);
+  if(dist>105){
+    s.dragging=false;s.dipstickRemoved=true;
+    serviceState.step='engineOilHose';
+    dipstickDrag.style.opacity='0';
+    setTimeout(()=>{dipstickDrag.style.display='none';dipstickDrag.style.transform='rotate(-7deg)'},240);
+    engineOilStatus.textContent='DIPSTICK REMOVED ✓';
+    setTimeout(()=>{
+      showServiceCardForFiveSeconds(
+        'INSERT THE EXTRACTOR HOSE',
+        'Tap the highlighted <b>dipstick tube</b> to feed the oil-extractor hose down into the crankcase.',
+        'TAP THE DIPSTICK TUBE',
+        ()=>{
+          serviceCard.style.display='none';
+          dipstickTube.style.display='block';
+          engineOilStatus.textContent='TAP THE DIPSTICK TUBE';
+        }
+      );
+    },350);
+  }
+}
+function dipstickPointerUp(e){
+  serviceState.engineOil.dragging=false;
+}
+dipstickDrag.addEventListener('pointerdown',dipstickPointerDown);
+dipstickDrag.addEventListener('pointermove',dipstickPointerMove);
+dipstickDrag.addEventListener('pointerup',dipstickPointerUp);
+dipstickDrag.addEventListener('pointercancel',dipstickPointerUp);
+
+dipstickTube.addEventListener('click',()=>{
+  if(serviceState.step!=='engineOilHose'||serviceState.engineOil.hoseInserted)return;
+  serviceState.engineOil.hoseInserted=true;
+  dipstickTube.style.display='none';
+  extractorHose.classList.add('inserted');
+  engineOilStatus.textContent='INSERTING EXTRACTOR HOSE…';
+  setTimeout(()=>{
+    serviceState.step='engineOilExtractorReady';
+    engineOilStatus.textContent='EXTRACTOR HOSE INSERTED ✓';
+    jobBadge.textContent='ENGINE OIL: BUILD VACUUM';
+    showServiceCardForFiveSeconds(
+      'BUILD VACUUM',
+      'Pump the oil extractor <b>15 good strokes</b>. Tap when the pressure needle is in the green zone.',
+      '15 GOOD PUMPS',
+      ()=>{
+        serviceCard.style.display='none';
+        startExtractorPumpChallenge();
+      }
+    );
+  },760);
+});
+
+engineOilPauseBtn.addEventListener('click',()=>{
+  engineOilDone.style.display='none';
+  engineOilStatus.textContent='NEXT: LET THE EXTRACTOR PULL THE OLD OIL';
+  animStatus.textContent='Extractor vacuum built — ready to pull the old oil';
+});
+
+
+function showJobStartPopup(){
+  if(serviceState.active)return;
+  jobStartPopup.classList.remove('show');
+  void jobStartPopup.offsetWidth;
+  jobStartPopup.classList.add('show');
+  setTimeout(()=>jobStartPopup.classList.remove('show'),2700);
+}
+function revealOutboardAndBeginJob(){
+  arrivalState.finished=true;
+  if(jobWaypoint)jobWaypoint.visible=false;
+  firstJobState.waypointActive=false;
+  jobBadge.textContent='JOB 1: ANNUAL SERVICE';
+  animStatus.textContent='Annual service tutorial';
+  startAnnualServiceTutorial();
+}
+function finishArrivalCutscene(){
+  if(!arrivalState.cutscenePlaying)return;
+  arrivalState.cutscenePlaying=false;
+  arrivalCutsceneVideo.pause();
+  arrivalCutsceneOverlay.style.display='none';
+  boatDaddyMusic.volume=.58;
+  revealOutboardAndBeginJob();
+}
+async function playArrivalCutscene(){
+  if(arrivalState.triggered)return;
+  arrivalState.triggered=true;
+  arrivalState.cutscenePlaying=true;
+  document.exitPointerLock?.();
+  arrivalCutsceneOverlay.style.display='flex';
+  boatDaddyMusic.volume=.08;
+  arrivalCutsceneVideo.currentTime=0;
+  try{await arrivalCutsceneVideo.play();}catch(e){finishArrivalCutscene();}
+}
+arrivalCutsceneVideo.addEventListener('ended',finishArrivalCutscene);
+skipArrivalCutscene.addEventListener('click',finishArrivalCutscene);
+
+function showCustomerCall(force=false){
+  if(!phoneRoot || callState.active) return;
+  if(callState.triggered && !force) return;
+  callState.triggered=true;
+  callState.active=true;
+  document.exitPointerLock?.();
+  drawPhoneScreen('calling');
+  phoneRoot.visible=true;
+  animStatus.textContent='Customer calling — annual service';
+  jobBadge.textContent='INCOMING CALL';
+  try{navigator.vibrate?.([240,120,240,120,360]);}catch(e){}
+}
+
+function resolveCustomerCall(accepted){
+  if(!callState.active) return;
+  callState.active=false;
+  callState.accepted=accepted;
+  drawPhoneScreen(accepted?'accepted':'declined');
+  jobBadge.textContent=accepted?'ANNUAL SERVICE ACCEPTED':'CALL DECLINED';
+  animStatus.textContent=accepted?'Annual service accepted':'Call declined';
+  setTimeout(()=>{
+    if(phoneRoot)phoneRoot.visible=false;
+    if(accepted)playFirstJobCutscene();
+  },520);
+}
+
+function special(name){
+  if(controller.special||!actions[name])return;
+  alternateIdleActive=false;
+  idleStillTime=0;
+  controller.special=true;
+  controller.specialName=name;
+  if(!callState.triggered && (name==='backflip'||name==='breakdance')){
+    callState.trick=true;
+    updateTrainingHUD();
+  }
+  const a=actions[name];
+  a.reset();
+  a.setLoop(THREE.LoopOnce,1);
+  a.clampWhenFinished=true;
+  if(currentAction)currentAction.fadeOut(.12);
+  a.fadeIn(.12).play();
+  currentAction=a;
+  currentName=name;
+  controller.specialTimer=Math.max(.4,a.getClip().duration);
+  animStatus.textContent='Animation: '+name.toUpperCase();
+}
+
+mixer=null;
+async function loadAll(){try{
+ const names=['base','walk','casual','run','jump','backflip','breakdance','stomp','breath','turn','pushup'];let done=0;const total=names.length+9;
+ function progress(msg){done++;loadBar.style.width=(done/total*100)+'%';loadMsg.textContent=msg}
+ loadMsg.textContent='Loading Rick model…';const base=await parseGLB(EMBEDDED.base);progress('Rick model loaded');
+ actor=base.scene;actor.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false}});scene.add(actor);
+ // Normalize model to human-ish height.
+ const box3=new THREE.Box3().setFromObject(actor);const size=new THREE.Vector3();box3.getSize(size);actorScale=1.82/Math.max(.001,size.y);actor.scale.setScalar(actorScale);actor.position.copy(controller.pos);actor.rotation.y=controller.yaw;
+ mixer=new THREE.AnimationMixer(actor);
+ const idle=cleanClip(bestClip(base));actions.idle=mixer.clipAction(idle);actions.idle.play();currentAction=actions.idle;currentName='idle';
+ const map=[['walk','walk'],['casual','casual'],['run','run'],['jump','jump'],['backflip','backflip'],['breakdance','breakdance'],['stomp','stomp'],['breath','breath'],['turn','turn'],['pushup','pushup']];
+ for(const [key,label] of map){loadMsg.textContent='Loading '+label+' animation…';const g=await parseGLB(EMBEDDED[key]);const clip=cleanClip(bestClip(g));clip.name=label;actions[label]=mixer.clipAction(clip);progress(label+' ready')}
+ function placeSlipBoat(obj,targetLength,x,z,yaw,desiredBottom=-.68){
+   obj.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false}});
+   const b0=new THREE.Box3().setFromObject(obj),s0=new THREE.Vector3();b0.getSize(s0);
+   const horizontal=Math.max(s0.x,s0.z,.001);
+   obj.scale.setScalar(targetLength/horizontal);
+   obj.rotation.y=yaw;
+   obj.position.set(x,0,z);
+   obj.updateMatrixWorld(true);
+   const b1=new THREE.Box3().setFromObject(obj);
+   obj.position.y += desiredBottom-b1.min.y;
+   scene.add(obj);
+ }
+
+ loadMsg.textContent='Loading new marina boat 1…';
+ const boat1GLTF=await parseGLB(EXTRA_BOAT_1_B64);
+ const marinaBoat1=boat1GLTF.scene;
+ placeSlipBoat(marinaBoat1,4.65,5.65,-9.55,0,-.68);
+ jobBoatTarget=marinaBoat1;
+ loadMsg.textContent='Loading Yamaha outboard…';
+ const outboardGLTF=await parseGLB(OUTBOARD_B64);
+ jobOutboard=outboardGLTF.scene;
+ jobOutboard.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false}});
+ const obBox=new THREE.Box3().setFromObject(jobOutboard),obSize=new THREE.Vector3();obBox.getSize(obSize);
+ jobOutboard.scale.setScalar(1.48/Math.max(.001,obSize.y||1));
+ jobOutboard.position.set(.18,-.05,-2.55);
+ jobOutboard.rotation.set(0,Math.PI,0);
+ jobOutboard.visible=false;
+ camera.add(jobOutboard);
+ progress('Yamaha outboard ready');
+ progress('Marina boat 1 ready');
+
+ loadMsg.textContent='Loading new marina boat 2…';
+ const boat2GLTF=await parseGLB(EXTRA_BOAT_2_B64);
+ const marinaBoat2=boat2GLTF.scene;
+ placeSlipBoat(marinaBoat2,4.75,-5.65,-.55,Math.PI,-.70);
+ progress('Marina boat 2 ready');
+
+ loadMsg.textContent='Loading new center-console boat…';
+ const boat3GLTF=await parseGLB(EXTRA_BOAT_3_B64);
+ const marinaBoat3=boat3GLTF.scene;
+ placeSlipBoat(marinaBoat3,5.15,5.72,8.45,0,-.72);
+ const marinaBigBoat=marinaBoat3.clone(true);
+ placeSlipBoat(marinaBigBoat,6.55,5.72,17.45,0,-.74);
+ progress('Center-console boat ready');
+ loadMsg.textContent='Loading your Serenity pontoon…';
+ const pontoonGLTF=await parseGLB(PONTOON_B64);
+ const pontoon=pontoonGLTF.scene;
+ pontoon.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
+ pontoon.scale.setScalar(3.2);
+ pontoon.rotation.y=0;
+ pontoon.position.set(-6.2,.72,8.4);
+ scene.add(pontoon);
+ const pontoonCopy=pontoon.clone(true);
+ pontoonCopy.position.set(-6.2,.72,17.45);
+ pontoonCopy.rotation.y=0;
+ scene.add(pontoonCopy);
+ progress('Serenity pontoon ready');
+
+ loadMsg.textContent='Loading Malibu Manatee Ride…';
+ const manateeGLTF=await parseGLB(MANATEE_BOAT_B64);
+ manateeBoat=manateeGLTF.scene;
+ manateeBoat.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false}});
+ scene.add(manateeBoat);
+ const mbox=new THREE.Box3().setFromObject(manateeBoat);
+ const msize=new THREE.Vector3(); mbox.getSize(msize);
+ const manateeScale=3.25/Math.max(.001,msize.z||msize.x||1);
+ manateeBoat.scale.setScalar(manateeScale);
+ // Open-water patrol route, outside the slips so he doesn't clip into the docks.
+ manateeBoat.userData.route=[
+   new THREE.Vector3(-11.35,manateeState.baseY,-32.8),
+   new THREE.Vector3(-11.35,manateeState.baseY,-16.0),
+   new THREE.Vector3(-11.35,manateeState.baseY,  0.0),
+   new THREE.Vector3(-11.35,manateeState.baseY, 16.0),
+   new THREE.Vector3(-11.35,manateeState.baseY, 32.8),
+   new THREE.Vector3( 24.25,manateeState.baseY, 32.8),
+   new THREE.Vector3( 24.25,manateeState.baseY, 16.0),
+   new THREE.Vector3( 24.25,manateeState.baseY,  0.0),
+   new THREE.Vector3( 24.25,manateeState.baseY,-16.0),
+   new THREE.Vector3( 24.25,manateeState.baseY,-32.8)
+ ];
+ manateeBoat.position.copy(manateeBoat.userData.route[0]);
+ manateeBoat.rotation.y=Math.PI/2;
+
+ progress('Malibu Manatee Ride ready');
+
+ loadMsg.textContent='Loading Gage…';
+ const gageRunGLTF=await parseGLB(GAGE_RUN_B64);
+ gageNPC=gageRunGLTF.scene;
+ gageNPC.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false}});
+ const gageBox=new THREE.Box3().setFromObject(gageNPC),gageSize=new THREE.Vector3();gageBox.getSize(gageSize);
+ gageNPC.scale.setScalar(1.78/Math.max(.001,gageSize.y));
+ gageNPC.position.copy(gageDockNodes[0].p);
+ scene.add(gageNPC);
+ gageMixer=new THREE.AnimationMixer(gageNPC);
+ const gageRunClip=cleanClip(bestClip(gageRunGLTF));
+ gageRunClip.name='Gage casual walk';
+ gageRunAction=gageMixer.clipAction(gageRunClip);
+ progress('Gage walking ready');
+
+ loadMsg.textContent='Loading Gage idle…';
+ const gageIdleGLTF=await parseGLB(GAGE_IDLE_B64);
+ const gageIdleClip=cleanClip(bestClip(gageIdleGLTF));
+ gageIdleClip.name='Gage idle';
+ gageIdleAction=gageMixer.clipAction(gageIdleClip);
+ gageState.loaded=true;
+ gageState.currentNode=0;
+ gageState.lastNode=-1;
+ gageState.nextNode=1;
+ gageState.target=null;
+ gageSetAction('idle');
+ gageState.idleUntil=clock.elapsedTime+10+Math.random()*12;
+ progress('Gage NPC ready');
+
+
+ loadMsg.textContent='Loading Rick’s phone…';
+ const phoneGLTF=await parseGLB(PHONE_B64);
+ phoneRoot=phoneGLTF.scene;
+ phoneRoot.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;o.frustumCulled=false}});
+ const pbox=new THREE.Box3().setFromObject(phoneRoot),psize=new THREE.Vector3();pbox.getSize(psize);
+ const phoneScale=1.28/Math.max(.001,psize.y);
+ phoneRoot.scale.setScalar(phoneScale);
+ phoneRoot.position.set(0,-.02,-1.72);
+ phoneRoot.rotation.set(0,0,0);
+ phoneRoot.visible=false;
+ camera.add(phoneRoot);
+
+ phoneScreenTexture=new THREE.CanvasTexture(callCanvas);
+ phoneScreenTexture.encoding=THREE.sRGBEncoding;
+ phoneScreenTexture.minFilter=THREE.LinearFilter;
+ phoneScreenMesh=new THREE.Mesh(
+   new THREE.PlaneGeometry(.455,.735),
+   new THREE.MeshBasicMaterial({map:phoneScreenTexture,side:THREE.DoubleSide,depthTest:false,depthWrite:false,toneMapped:false})
+ );
+ phoneScreenMesh.position.set(0,-.005,.033);
+ phoneScreenMesh.renderOrder=1000;
+ phoneRoot.add(phoneScreenMesh);
+ drawPhoneScreen('calling');
+ progress('Phone ready');
+
+ mixer.addEventListener('finished',e=>{if(controller.special && e.action===currentAction){if(controller.specialName==='turn')controller.yaw-=Math.PI/2;controller.special=false;controller.specialName='';play('idle',{fade:.12})}});
+ loaderUI.style.display='none';animStatus.textContent='Animation: IDLE'; updateTrainingHUD();
+}catch(err){console.error(err);loadMsg.classList.add('error');loadMsg.textContent='Could not load Rick: '+err.message+' — make sure you are online so Three.js can load.'}}
+loadAll();
+
+// Input
+addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(callState.active){
+    if(e.code==='KeyA'||e.code==='Enter'){resolveCustomerCall(true);return;}
+    if(e.code==='KeyD'||e.code==='Escape'){resolveCustomerCall(false);return;}
+    return;
+  }
+  if(e.code==='KeyC'){showCustomerCall(true);return;}
+  if(e.code==='KeyJ' && firstJobState.waypointActive && !arrivalState.triggered){playArrivalCutscene();return;}
+  if(e.code==='Space'){e.preventDefault();triggerJump()}
+  if((e.code==='ShiftLeft'||e.code==='ShiftRight') && actor && controller.onGround && !controller.special){
+    const mv=movementVector();
+    if(mv.lengthSq()>.004) play('run',{fade:.08});
+  }
+  if(e.code==='Digit1'||e.code==='KeyF')special('backflip');
+  if(e.code==='Digit2'||e.code==='KeyB')special('breakdance');
+  if(e.code==='Digit3')special('stomp');
+  if(e.code==='Digit4')special('breath');
+  if(e.code==='KeyQ')special('turn');
+});
+addEventListener('keyup',e=>{
+  keys[e.code]=false;
+  if((e.code==='ShiftLeft'||e.code==='ShiftRight') && actor && controller.onGround && !controller.special){
+    const mv=movementVector();if(mv.lengthSq()>.004)play('walk',{fade:.06});
+  }
+});
+function triggerJump(){
+  if(!actor||controller.special||!controller.onGround)return;
+  cancelAlternateIdle();
+  controller.onGround=false;
+  controller.jumping=true;
+  if(!callState.triggered){callState.jumped=true;updateTrainingHUD();}
+  controller.vertical=5.2;
+  const a=actions.jump;
+  if(a){
+    if(currentAction)currentAction.fadeOut(.08);
+    a.reset();
+    a.enabled=true;
+    a.setEffectiveWeight(1);
+    a.setEffectiveTimeScale(1);
+    a.setLoop(THREE.LoopOnce,1);
+    a.clampWhenFinished=true;
+    a.fadeIn(.08).play();
+    currentAction=a;
+    currentName='jump';
+    animStatus.textContent='Animation: JUMP';
+  }
+}
+
+function startAlternateIdle(){
+  if(!actions.pushup || controller.special || !controller.onGround || alternateIdleActive || callState.active || firstJobState.cutscenePlaying || arrivalState.cutscenePlaying || serviceState.active) return;
+  alternateIdleActive=true;
+  const a=actions.pushup;
+  if(currentAction) currentAction.fadeOut(.18);
+  a.reset();
+  a.enabled=true;
+  a.setEffectiveWeight(1);
+  a.setEffectiveTimeScale(1);
+  a.setLoop(THREE.LoopRepeat,Infinity);
+  a.clampWhenFinished=false;
+  a.fadeIn(.18).play();
+  currentAction=a;
+  currentName='pushup';
+  animStatus.textContent='Animation: ALT IDLE';
+}
+
+function cancelAlternateIdle(){
+  if(!alternateIdleActive) return;
+  alternateIdleActive=false;
+  idleStillTime=0;
+  play('idle',{fade:.12});
+}
+
+
+// PC mouse camera: click the 3D view to capture the mouse; Esc releases it.
+const coarsePointer=matchMedia('(pointer:coarse)').matches;
+renderer.domElement.addEventListener('click',()=>{
+  if(callState.active||firstJobState.cutscenePlaying||arrivalState.cutscenePlaying)return;
+  if(!coarsePointer && document.pointerLockElement!==renderer.domElement){
+    renderer.domElement.requestPointerLock?.();
+  }
+});
+document.addEventListener('pointerlockchange',()=>{
+  const locked=document.pointerLockElement===renderer.domElement;
+  mouseHint.textContent=locked?'MOUSE CAMERA ACTIVE • ESC TO RELEASE':'CLICK GAME TO USE MOUSE CAMERA';
+  crosshair.style.display=locked?'block':'none';
+});
+document.addEventListener('mousemove',e=>{
+  if(document.pointerLockElement!==renderer.domElement)return;
+  // Moderate sensitivity for accurate PC control.
+  cameraRig.yaw-=e.movementX*0.00145;
+  cameraRig.pitch=THREE.MathUtils.clamp(cameraRig.pitch+e.movementY*0.0012,-.16,1.08);
+});
+
+renderer.domElement.addEventListener('pointerdown',e=>{
+  if(!callState.active||!phoneScreenMesh)return;
+  const rect=renderer.domElement.getBoundingClientRect();
+  callPointer.x=((e.clientX-rect.left)/rect.width)*2-1;
+  callPointer.y=-((e.clientY-rect.top)/rect.height)*2+1;
+  callRaycaster.setFromCamera(callPointer,camera);
+  const hit=callRaycaster.intersectObject(phoneScreenMesh,false)[0];
+  if(!hit||!hit.uv)return;
+  const u=hit.uv.x, v=1-hit.uv.y;
+  if(v>=.64&&v<=.86){
+    if(u<.50)resolveCustomerCall(true);
+    else resolveCustomerCall(false);
+  }
+},{capture:true});
+
+
+
+// Mobile twin-stick controls
+const joy=document.getElementById('joy'),knob=document.getElementById('joyKnob');
+const joyRight=document.getElementById('joyRight'),knobRight=document.getElementById('joyRightKnob');
+function bindJoystick(base,knob,onChange){
+  let activeId=null;
+  function update(e){
+    const r=base.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+    let dx=e.clientX-cx,dy=e.clientY-cy;
+    const max=43,mag=Math.hypot(dx,dy)||1;
+    if(mag>max){dx=dx/mag*max;dy=dy/mag*max}
+    knob.style.transform=`translate(${dx}px,${dy}px)`;
+    onChange(dx/max,-dy/max);
+  }
+  function end(e){
+    if(e.pointerId!==activeId)return;
+    activeId=null;
+    knob.style.transform='translate(0,0)';
+    onChange(0,0);
+  }
+  base.addEventListener('pointerdown',e=>{activeId=e.pointerId;base.setPointerCapture(e.pointerId);update(e)});
+  base.addEventListener('pointermove',e=>{if(e.pointerId===activeId)update(e)});
+  base.addEventListener('pointerup',end);
+  base.addEventListener('pointercancel',end);
+}
+bindJoystick(joy,knob,(x,y)=>{input.x=x;input.y=y});
+bindJoystick(joyRight,knobRight,(x,y)=>{input.lookX=x;input.lookY=y});
+for(const b of document.querySelectorAll('.act')){
+  if(b.dataset.action==='runToggle'){
+    const startRun=(e)=>{
+      e.preventDefault();
+      if(callState.active)return;
+      controller.mobileRunHeld=true;
+      b.textContent='RUNNING';
+      speedBadge.textContent='RUN MODE';
+      const mv=movementVector();
+      if(controller.onGround&&!controller.special&&mv.lengthSq()>.004)play('run',{fade:.03});
+    };
+    const stopRun=(e)=>{
+      if(e)e.preventDefault();
+      controller.mobileRunHeld=false;
+      b.textContent='HOLD RUN';
+      speedBadge.textContent='WALK MODE';
+      const mv=movementVector();
+      if(controller.onGround&&!controller.special&&mv.lengthSq()>.004)play('walk',{fade:.03});
+    };
+    b.addEventListener('pointerdown',startRun);
+    b.addEventListener('pointerup',stopRun);
+    b.addEventListener('pointercancel',stopRun);
+    b.addEventListener('pointerleave',e=>{if(e.buttons===0)stopRun(e);});
+  }
+}
+const jumpBtn=document.querySelector('.act[data-action="jump"]');
+if(jumpBtn)jumpBtn.addEventListener('pointerdown',e=>{e.preventDefault();if(!callState.active)triggerJump();});
+const flipBtn=document.querySelector('.act[data-action="backflip"]');
+if(flipBtn)flipBtn.addEventListener('pointerdown',e=>{e.preventDefault();if(!callState.active)special('backflip');});
+const danceBtn=document.querySelector('.act[data-action="breakdance"]');
+if(danceBtn)danceBtn.addEventListener('pointerdown',e=>{e.preventDefault();if(!callState.active)special('breakdance');});
+
+function curvedStick(x,y,deadzone=.12,power=1.7){
+  const mag=Math.hypot(x,y);
+  if(mag<=deadzone)return new THREE.Vector2(0,0);
+  const remap=Math.min(1,(mag-deadzone)/(1-deadzone));
+  const scaled=Math.pow(remap,power);
+  return new THREE.Vector2(x/mag*scaled,y/mag*scaled);
+}
+function movementVector(){
+  const stick=curvedStick(input.x,input.y,.12,1.75);
+  let x=stick.x,y=stick.y;
+  if(keys.KeyA||keys.ArrowLeft)x-=1;
+  if(keys.KeyD||keys.ArrowRight)x+=1;
+  if(keys.KeyW||keys.ArrowUp)y+=1;
+  if(keys.KeyS||keys.ArrowDown)y-=1;
+  const v=new THREE.Vector2(x,y);
+  if(v.length()>1)v.normalize();
+  return v;
+}
+function worldMoveFromInput(mv){
+  const forward=new THREE.Vector2(Math.sin(cameraRig.yaw),Math.cos(cameraRig.yaw));
+  const right=new THREE.Vector2(-Math.cos(cameraRig.yaw),Math.sin(cameraRig.yaw));
+  const wx=right.x*mv.x+forward.x*mv.y;
+  const wz=right.y*mv.x+forward.y*mv.y;
+  return new THREE.Vector2(wx,wz);
+}
+function lerpAngle(a,b,t){let d=((b-a+Math.PI)%(Math.PI*2))-Math.PI;return a+d*t}
+
+const camTarget=new THREE.Vector3();const desiredCam=new THREE.Vector3();
+
+function yellFromManatee(time){
+  manateeState.lastYell=time;
+  manateeState.nextYell=time+35+Math.random()*75;
+
+  // Always show the speech bubble.
+  manateeYell.classList.remove('show');
+  void manateeYell.offsetWidth;
+  manateeYell.classList.add('show');
+  setTimeout(()=>manateeYell.classList.remove('show'),1700);
+
+  // Try to actually yell it through the phone/browser speaker.
+  // Some Android browsers only allow speech after the user has interacted with the page.
+  try{
+    if('speechSynthesis' in window){
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance('fuck you!');
+      u.rate=.82;
+      u.pitch=.72;
+      u.volume=1;
+      const voices=window.speechSynthesis.getVoices?.()||[];
+      const english=voices.filter(v=>/^en[-_]/i.test(v.lang||''));
+      const maleish=english.find(v=>/male|guy|daniel|david|fred|thomas|alex/i.test(v.name||''))||english[0]||voices[0];
+      if(maleish)u.voice=maleish;
+      window.speechSynthesis.speak(u);
+    }
+  }catch(e){}
+}
+
+function updateManateeYell(time){
+  if(!manateeBoat)return;
+  if(time<manateeState.nextYell)return;
+
+  // Don't interrupt customer calls, cutscenes, or mechanic tutorials.
+  const busy=
+    callState.active||
+    firstJobState.cutscenePlaying||
+    arrivalState.cutscenePlaying||
+    serviceState.active;
+  if(busy){
+    manateeState.nextYell=time+12+Math.random()*18;
+    return;
+  }
+
+  yellFromManatee(time);
+}
+
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.034);const time=clock.elapsedTime;
+ updateManateeYell(time);
+ // Water ripples.
+ const arr=waterGeo.attributes.position.array;
+ for(let i=0;i<arr.length;i+=3){
+   const x=waterBase[i],z=waterBase[i+2];
+   arr[i+1]=waterBase[i+1]
+     +Math.sin(x*.33+time*.95)*.052
+     +Math.cos(z*.27-time*.72)*.041
+     +Math.sin((x+z)*.18+time*1.36)*.025;
+ }
+ waterGeo.attributes.position.needsUpdate=true;waterGeo.computeVertexNormals();
+ reflectionMat.opacity=.075+.035*(.5+.5*Math.sin(time*.42));
+ updateRain(dt,time);
+ if(actor&&mixer){
+   const mv=(callState.active||firstJobState.cutscenePlaying||arrivalState.cutscenePlaying||serviceState.active)?new THREE.Vector2(0,0):movementVector();const moving=mv.lengthSq()>.004;const running=(keys.ShiftLeft||keys.ShiftRight||controller.mobileRunHeld||controller.runToggle);
+   const lookStick=curvedStick(input.lookX,input.lookY,.10,1.85);
+   const lookActive=lookStick.lengthSq()>.0005;
+   if(lookActive){
+     cameraRig.yaw-=lookStick.x*dt*1.25;
+     cameraRig.pitch=THREE.MathUtils.clamp(cameraRig.pitch-lookStick.y*dt*.88,-.16,1.08);
+   }
+   if(!controller.special){
+     if(moving){
+       idleStillTime=0;
+       if(alternateIdleActive) cancelAlternateIdle();
+       const wm=worldMoveFromInput(mv);
+       const angle=Math.atan2(wm.x,wm.y);
+       controller.yaw=lerpAngle(controller.yaw,angle,Math.min(1,dt*7));
+       const baseSpeed=running?3.45:1.65;
+       const traction=rainState.active ? 0.74 : 1.0;
+       const speed=baseSpeed*traction;
+       const airControl=controller.onGround?1:.86;
+       const prevX=controller.pos.x, prevZ=controller.pos.z;
+       let nextX=controller.pos.x+wm.x*speed*airControl*dt;
+       let nextZ=controller.pos.z+wm.y*speed*airControl*dt;
+       if(rainState.active && controller.onGround){
+         // Gusts push Rick sideways, but never forcibly throw him off the dock.
+         const gustX=nextX+rainState.windX*dt*.62;
+         const gustZ=nextZ+rainState.windZ*dt*.62;
+         if(getWalkSurfaceY(gustX,gustZ)!==null){nextX=gustX;nextZ=gustZ;}
+       }
+       const surfaceY=getWalkSurfaceY(nextX,nextZ);
+       if(surfaceY!==null){
+         controller.pos.x=nextX;
+         controller.pos.z=nextZ;
+         if(controller.onGround){
+           controller.groundY=surfaceY;
+           controller.pos.y=surfaceY;
+         }
+       }
+       if(controller.onGround){
+         const movedDist=Math.hypot(controller.pos.x-prevX,controller.pos.z-prevZ);
+         if(movedDist>.0001){
+           if(running){
+             callState.runDist+=movedDist;
+             callState.runSteps=Math.floor(callState.runDist/.92);
+           }else{
+             callState.walkDist+=movedDist;
+             callState.walkSteps=Math.floor(callState.walkDist/.68);
+           }
+           if(!callState.triggered)updateTrainingHUD();
+         }
+         play(running?'run':'walk',{fade:.04});
+       }
+     } else if(controller.onGround && !callState.active && !firstJobState.cutscenePlaying && !arrivalState.cutscenePlaying && !serviceState.active) {
+       idleStillTime+=dt;
+       if(!alternateIdleActive && idleStillTime>=ALT_IDLE_DELAY){
+         startAlternateIdle();
+       } else if(!alternateIdleActive) {
+         play('idle',{fade:.12});
+       }
+     }
+   }
+
+   if(!controller.onGround){
+     const landingY=getWalkSurfaceY(controller.pos.x,controller.pos.z);
+     if(landingY!==null)controller.groundY=landingY;
+     controller.vertical-=10.7*dt;
+     controller.pos.y+=controller.vertical*dt;
+     if(controller.pos.y<=controller.groundY){
+       controller.pos.y=controller.groundY;
+       controller.vertical=0;
+       controller.onGround=true;
+       controller.jumping=false;
+       if(!controller.special){
+         if(moving) play(running?'run':'walk',{fade:.08});
+         else play('idle',{fade:.10});
+       }
+     }
+   }
+   if(!callState.triggered && trainingReady() && controller.onGround && !controller.special && !serviceState.active){
+     showCustomerCall();
+   }
+   actor.position.copy(controller.pos);actor.rotation.y=controller.yaw;
+   mixer.update(dt);
+
+   updateGage(dt,time);
+
+   if(manateeBoat){
+     const route=manateeBoat.userData.route;
+     const target=route[manateeState.targetIndex];
+     // Variable throttle: cruise most of the time, occasionally let the jetski rip.
+     if(time>=manateeState.nextBurst && time>=manateeState.burstUntil){
+       manateeState.burstUntil=time+1.8+Math.random()*2.5;
+       manateeState.targetSpeed=3.8+Math.random()*2.4;
+       manateeState.nextBurst=time+12+Math.random()*18;
+     }else if(time>=manateeState.burstUntil && time>=manateeState.nextSpeedChange){
+       manateeState.targetSpeed=.65+Math.random()*1.15;
+       manateeState.nextSpeedChange=time+2.5+Math.random()*4.5;
+     }
+     const throttleResponse=time<manateeState.burstUntil?2.7:1.0;
+     manateeState.currentSpeed=THREE.MathUtils.lerp(
+       manateeState.currentSpeed,manateeState.targetSpeed,Math.min(1,dt*throttleResponse)
+     );
+
+     const stepVec=new THREE.Vector3().subVectors(target, manateeBoat.position);
+     const flatDist=Math.hypot(stepVec.x, stepVec.z);
+     if(flatDist < .45){
+       manateeState.targetIndex=(manateeState.targetIndex+1)%route.length;
+     }else{
+       stepVec.y=0;
+       stepVec.normalize();
+       manateeBoat.position.x += stepVec.x * manateeState.currentSpeed * dt;
+       manateeBoat.position.z += stepVec.z * manateeState.currentSpeed * dt;
+       const desiredYaw=Math.atan2(stepVec.x, stepVec.z);
+       manateeBoat.rotation.y = lerpAngle(manateeBoat.rotation.y, desiredYaw, Math.min(1, dt*(1.8+manateeState.currentSpeed*.12)));
+     }
+     const rip=Math.min(1,manateeState.currentSpeed/4.0);
+     manateeBoat.position.y = manateeState.baseY + Math.sin(time*(1.35+rip*1.3) + manateeBoat.position.x*.18)*(.06+rip*.035);
+     manateeBoat.rotation.z = Math.sin(time*(1.9+rip*.9) + manateeBoat.position.z*.14)*(.045+rip*.035);
+     manateeBoat.rotation.x = Math.cos(time*(1.5+rip*.65) + manateeBoat.position.x*.10)*(.018+rip*.018);
+   }
+
+
+   if(firstJobState.waypointActive && jobBoatTarget && !arrivalState.triggered && !firstJobState.cutscenePlaying && !arrivalState.cutscenePlaying){
+     const distToService=Math.hypot(controller.pos.x-firstJobServicePoint.x,controller.pos.z-firstJobServicePoint.z);
+     if(distToService<2.25)playArrivalCutscene();
+   }
+
+   if(firstJobState.waypointActive && jobWaypoint && jobBoatTarget){
+     jobWaypoint.position.set(firstJobServicePoint.x,firstJobServicePoint.y+2.65,firstJobServicePoint.z);
+     jobWaypoint.rotation.y=time*.85;
+     const pulse=1+Math.sin(time*3.4)*.10;jobWaypoint.scale.setScalar(pulse);
+   }
+
+   // Orbit / follow camera with right joystick support.
+   camTarget.copy(controller.pos);camTarget.y+=1.1;
+   const horiz=cameraRig.distance*Math.cos(cameraRig.pitch);
+   const height=cameraRig.distance*Math.sin(cameraRig.pitch);
+   const back=new THREE.Vector3(-Math.sin(cameraRig.yaw)*horiz,height,-Math.cos(cameraRig.yaw)*horiz);
+   desiredCam.copy(camTarget).add(back);
+   desiredCam.y=Math.max(.48,desiredCam.y);
+   camera.position.lerp(desiredCam,1-Math.exp(-dt*5.5));
+   camera.lookAt(camTarget);
+ }
+ renderer.render(scene,camera)}
+animate();
+
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.75))});
+</script>
+</body></html>
