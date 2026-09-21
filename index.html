@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Dockyard Deception — v18.11 Payday + Pan + Voice + Decline Flow</title>
+<title>Dockyard Deception — v18.13 Stability Pass</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07121a;color:white;font-family:Inter,system-ui,Arial,sans-serif;touch-action:none}body{position:relative}
 #stage{position:absolute;inset:0}canvas{display:block;width:100%;height:100%}
@@ -487,6 +487,16 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 #declinePopup .sub{margin-top:5px;color:#ffe1d8;font-size:clamp(11px,2.2vw,14px);font-weight:800;line-height:1.3}
 @media(pointer:coarse){#fullscreenBtn{right:4px!important;top:42%!important;width:23px!important;height:23px!important;font-size:12px!important}}
 
+
+/* v18.13 stability pass */
+#fullscreenBtn{right:6px!important;top:52px!important;bottom:auto!important;left:auto!important;transform:none!important;width:22px!important;height:22px!important;font-size:11px!important;opacity:.20!important;border-radius:7px!important}
+#fullscreenBtn:hover,#fullscreenBtn:active{opacity:.70!important;transform:scale(.96)!important}
+@media(pointer:coarse){#fullscreenBtn{right:5px!important;top:48px!important;width:21px!important;height:21px!important;font-size:10px!important}}
+/* Keep the drain pan renderer physically in the bottom of the catch area. */
+#gearOilPan3DHost{left:0!important;right:0!important;top:76%!important;bottom:62px!important;transform:none!important;overflow:visible!important}
+/* The tutorial HUD stays useful without advertising the hidden training counters. */
+#hud .small{display:none!important}
+
 </style>
 </head>
 <body>
@@ -700,7 +710,7 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 <div id="crosshair"></div>
 <div id="weatherBadge">RAIN • GUSTY WIND</div>
 <div id="manateeYell">FUCK YOU!</div>
-<div id="hud"><div class="panel"><div class="title">DOCKYARD DECEPTION — MARINA</div><div class="small">Explore the marina. The first call comes after 15 walking steps, 20 running steps, one jump, and either a backflip or breakdance.</div><div class="status" id="animStatus">Loading Rick…</div><span class="badge" id="speedBadge">WALK MODE</span> <span class="badge" id="jobBadge">TRAINING W 0/15 • R 0/20 • JUMP ○ • TRICK ○</span></div></div>
+<div id="hud"><div class="panel"><div class="title">DOCKYARD DECEPTION — MARINA</div><div class="status" id="animStatus">Loading Rick…</div><span class="badge" id="speedBadge">WALK MODE</span> <span class="badge" id="jobBadge">MARINA OPEN</span></div></div>
 <div id="tips"><div class="panel small"><b>CONTROLS</b><br><span class="key">WASD</span> move &nbsp; <span class="key">SHIFT</span> run &nbsp; <span class="key">SPACE</span> jump<br><span class="key">1</span> backflip <span class="key">2</span> breakdance <span class="key">3</span> stomp <span class="key">4</span> catch breath<br><span class="key">Q</span> quick turn <span class="key">C</span> force customer call<br><span style="color:#b8d4de">PC: hold Shift to run, F or 1 = backflip, B or 2 = breakdance. Mobile: keep moving with the left stick and HOLD RUN with another finger; FLIP and DANCE now have their own buttons.</span></div></div>
 <div id="desktopActions"><div class="chip">1 Backflip</div><div class="chip">2 Breakdance</div><div class="chip">3 Stomp</div><div class="chip">4 Catch Breath</div><div class="chip">Q Quick Turn</div></div>
 <div id="mobile">
@@ -1995,18 +2005,26 @@ function initGearOilPan3D(){
     gltfLoader.load('gear_oil_pan.glb',g=>{
       fitGearPanModel(g.scene,1.90);g.scene.scale.x*=1.55;g.scene.scale.y*=.25;g.scene.scale.z*=.15;
       g.scene.traverse(o=>{if(o.isMesh&&o.material){const mats=Array.isArray(o.material)?o.material:[o.material];o.material=mats.map(m=>{const c=m.clone();if(c.color)c.color.set(0x090b0d);if('metalness' in c)c.metalness=Math.max(.18,c.metalness||0);if('roughness' in c)c.roughness=.72;return c});if(o.material.length===1)o.material=o.material[0]}});
-      const wrap=new THREE.Group();wrap.add(g.scene);/* broad X/Z opening faces +Y: flat/open side UP */wrap.rotation.set(0,.08,0);wrap.position.set(0,-1.90,.25);scene3.add(wrap);
+      const wrap=new THREE.Group();wrap.add(g.scene);/* broad X/Z opening faces +Y: flat/open side UP */wrap.rotation.set(0,.08,0);wrap.position.set(0,-.18,.18);scene3.add(wrap);
       gearOilPan3d.model=wrap;gearOilPan3d.ready=true;gearOilPan3d.loading=false;resizeGearOilPan3D();
     },undefined,()=>{gearOilPan3d.loading=false;});
   }catch(e){gearOilPan3d.loading=false;}
 }
 function resizeGearOilPan3D(){
-  if(!gearOilPan3d.renderer||!gearOilPan3d.camera)return;const w=Math.max(1,oilCatchGame.clientWidth),h=Math.max(1,oilCatchGame.clientHeight);
-  gearOilPan3d.renderer.setSize(w,h,false);const a=w/h;gearOilPan3d.camera.left=-2.55*a;gearOilPan3d.camera.right=2.55*a;gearOilPan3d.camera.top=1.55;gearOilPan3d.camera.bottom=-1.55;gearOilPan3d.camera.updateProjectionMatrix();
+  if(!gearOilPan3d.renderer||!gearOilPan3d.camera)return;
+  const w=Math.max(1,gearOilPan3DHost.clientWidth),h=Math.max(1,gearOilPan3DHost.clientHeight);
+  gearOilPan3d.renderer.setSize(w,h,false);
+  const a=w/h;
+  gearOilPan3d.camera.left=-2.55*a;gearOilPan3d.camera.right=2.55*a;
+  gearOilPan3d.camera.top=1.32;gearOilPan3d.camera.bottom=-1.32;
+  gearOilPan3d.camera.updateProjectionMatrix();
 }
 function updateGearOilPan3D(){
-  if(!gearOilPan3d.model)return;const a=Math.max(.65,oilCatchGame.clientWidth/Math.max(1,oilCatchGame.clientHeight));
+  if(!gearOilPan3d.model)return;
+  const a=Math.max(.65,gearOilPan3DHost.clientWidth/Math.max(1,gearOilPan3DHost.clientHeight));
   gearOilPan3d.model.position.x=(serviceState.panX-.5)*(4.1*a);
+  // Its host is already anchored under the falling stream. Keep the bowl centered/open-side-up here.
+  gearOilPan3d.model.position.y=-.18;
 }
 function startGearOilPan3DLoop(){
   if(gearOilPan3d.loop)return;const tick=()=>{gearOilPan3d.loop=0;if(serviceState.step!=='catch'||oilCatchGame.style.display==='none')return;resizeGearOilPan3D();updateGearOilPan3D();if(gearOilPan3d.renderer&&gearOilPan3d.scene&&gearOilPan3d.camera)gearOilPan3d.renderer.render(gearOilPan3d.scene,gearOilPan3d.camera);gearOilPan3d.loop=requestAnimationFrame(tick)};gearOilPan3d.loop=requestAnimationFrame(tick);
@@ -2687,7 +2705,18 @@ function showMoneyExplainer(){
   serviceOverlay.classList.add('active');serviceCard.style.display='block';
   setServiceText('PAYDAY — $300','Your <b>cash</b> can be used to buy <b>tools, health, energy, outfits, and helpers</b>. Earn more by completing jobs.','CASH UNLOCKED • $300');
   serviceButtons.innerHTML='';
-  serviceButton('GOT IT',()=>{serviceCard.style.display='none';serviceOverlay.classList.remove('active');jobBadge.textContent='JOB COMPLETE • PAID $300';animStatus.textContent='Annual service complete • customer paid $300'});
+  serviceButton('GOT IT',()=>{
+    serviceCard.style.display='none';
+    serviceOverlay.classList.remove('active');
+    serviceState.active=false;
+    serviceState.step='jobComplete';
+    if(serviceState.spark)serviceState.spark.active=false;
+    controller.special=false;
+    controller.mobileRunHeld=false;
+    jobBadge.textContent='JOB COMPLETE • PAID $300';
+    animStatus.textContent='Annual service complete • customer paid $300';
+    if(!isGuestPlayer())play('idle',{fade:.10});
+  });
 }
 function finishPaydayCutscene(){
   if(paydayFinishing)return;paydayFinishing=true;
@@ -3259,11 +3288,24 @@ function pickOldManVoice(){
   return pool.find(v=>male.test(v.name||''))||pool.find(v=>!female.test(v.name||''))||pool[0]||null;
 }
 if('speechSynthesis' in window){try{window.speechSynthesis.addEventListener?.('voiceschanged',()=>{cachedOldManVoice=pickOldManVoice()})}catch(e){}}
+const manateeBubbleWorld=new THREE.Vector3();
+function updateManateeSpeechBubble(){
+  if(!manateeBoat||!manateeYell.classList.contains('show'))return;
+  manateeBoat.getWorldPosition(manateeBubbleWorld);
+  manateeBubbleWorld.y+=2.65;
+  const p=manateeBubbleWorld.clone().project(camera);
+  const onScreen=p.z>-1&&p.z<1&&Math.abs(p.x)<1.15&&Math.abs(p.y)<1.15;
+  manateeYell.style.visibility=onScreen?'visible':'hidden';
+  if(!onScreen)return;
+  manateeYell.style.left=((p.x*.5+.5)*innerWidth)+'px';
+  manateeYell.style.top=((-p.y*.5+.5)*innerHeight-28)+'px';
+}
 function yellFromManatee(time){
   manateeState.lastYell=time;
   manateeState.nextYell=time+35+Math.random()*75;
 
   // Always show the speech bubble.
+  manateeYell.style.visibility='visible';
   manateeYell.classList.remove('show');
   void manateeYell.offsetWidth;
   manateeYell.classList.add('show');
@@ -3514,10 +3556,11 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
    camera.position.lerp(desiredCam,1-Math.exp(-dt*5.5));
    camera.lookAt(camTarget);
  }
+ updateManateeSpeechBubble();
  renderer.render(scene,camera)}
 animate();
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.75))});
 </script>
-<!-- Dockyard Deception v18.12: lower gear pan + stable Gage/Chas NPC motion -->
+<!-- Dockyard Deception v18.13: stability pass — lower anchored pan, payday control restore, manatee bubble tracking -->
 </body></html>
