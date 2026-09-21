@@ -501,8 +501,31 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 /* v18.14 — pan alignment + late-afternoon water/sky polish */
 #gearOilPan3DHost{inset:0!important;left:0!important;right:0!important;top:0!important;bottom:0!important;transform:none!important;overflow:hidden!important}
 #gearOilPanCanvas{inset:0!important;width:100%!important;height:100%!important}
-#oilStream{top:39%!important;height:49%!important}
+#oilStream{top:27%!important;height:65%!important}
 
+
+/* v18.18 — visible title/loading art + pan placement + torque meter */
+#loader{background:#06131c!important;place-items:end center!important;isolation:isolate}
+#loadingArtwork{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:0;display:block!important;opacity:1!important}
+#loader:before{z-index:1!important;background:linear-gradient(180deg,rgba(2,8,13,.08) 0%,rgba(2,9,14,.05) 48%,rgba(2,8,13,.80) 100%)!important}
+#loaderTitle{position:absolute;left:50%;top:max(26px,env(safe-area-inset-top));transform:translateX(-50%);z-index:2;color:#fff;font:1000 clamp(28px,6vw,58px)/1 system-ui,-apple-system,Segoe UI,sans-serif;letter-spacing:.055em;text-shadow:0 4px 20px rgba(0,0,0,.85);white-space:nowrap}
+#loaderCard{z-index:3!important}
+#loaderStartBtn{display:block;width:min(290px,78vw);margin:12px auto 0;min-height:48px;border:1px solid rgba(255,255,255,.55);border-radius:13px;background:linear-gradient(180deg,#3ac7e6,#167ea1);color:#fff;font-weight:1000;font-size:15px;letter-spacing:.04em;box-shadow:0 8px 24px rgba(0,0,0,.35);touch-action:manipulation}
+#loaderStartBtn:disabled{opacity:.45;filter:grayscale(.35)}
+#loaderStartBtn:not(:disabled):active{transform:scale(.97)}
+/* Force the visible 3D drain pan down into the bottom band while keeping its current size. */
+#gearOilPan3DHost{clip-path:inset(0 0 0 0)}
+#gearOilPanCanvas{transform:translateY(16%)!important;transform-origin:center center!important}
+#torqueMeterWrap{display:none;width:min(430px,86%);margin-top:5px}
+#torqueMeterWrap.show{display:block}
+#torqueMeter{position:relative;height:18px;border-radius:999px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.28);overflow:hidden}
+#torqueFill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#5ac2e7,#ffe36f,#ff786d)}
+#torqueTarget{position:absolute;top:0;bottom:0;width:16%;transform:translateX(-50%);border:2px solid #8dffae;background:rgba(93,255,145,.23);box-sizing:border-box;border-radius:999px}
+#torqueNeedle{position:absolute;top:-4px;bottom:-4px;width:3px;background:#fff;box-shadow:0 0 8px rgba(255,255,255,.8);left:0}
+#torqueLabels{display:flex;justify-content:space-between;margin-top:3px;font-size:10px;color:#cfe7ee;font-weight:900}
+
+#oilDrainPoint{top:25%!important}
+#oilStream{top:27%!important;height:65%!important}
 </style>
 </head>
 <body>
@@ -709,7 +732,7 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
   <div id="sparkHeader"><b>SPARK PLUG SERVICE</b><div id="sparkInstruction">Swipe LEFT to loosen the spark plug.</div><div id="sparkProgress">PLUG 1 / 6</div></div>
   <div id="sparkAssetBadge">3D TOOLS LOADING…</div>
   <div id="spark3DHost"><canvas id="sparkCanvas"></canvas></div>
-  <div id="sparkSwipePad"><div id="sparkSwipeArrow">←</div><div id="sparkSwipeText">0 / 4 LEFT SWIPES</div><div id="sparkFeedback">Use the ratchet to break the plug loose.</div></div>
+  <div id="sparkSwipePad"><div id="sparkSwipeArrow">←</div><div id="sparkSwipeText">0 / ? LEFT SWIPES</div><div id="sparkFeedback">Use the ratchet to break the plug loose.</div><div id="torqueMeterWrap"><div id="torqueMeter"><div id="torqueFill"></div><div id="torqueTarget"></div><div id="torqueNeedle"></div></div><div id="torqueLabels"><span>LOW</span><span id="torqueTargetText">TARGET</span><span>HIGH</span></div></div></div>
   <div id="sparkFail"><div id="sparkFailCard"><b id="sparkFailTitle">SPARK PLUG FAILED</b><div id="sparkFailText" style="margin-top:8px;color:#ffd2d5"></div><button id="sparkRetry" type="button">RETRY THIS PLUG</button></div></div>
 </div>
 <div id="mouseHint">CLICK GAME TO USE MOUSE CAMERA</div>
@@ -729,7 +752,17 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
    <button class="act trick" data-action="breakdance">DANCE</button>
   </div>
 </div>
-<div id="loader"><div id="loaderCard" class="panel"><div class="title">BUILDING RICK…</div><div class="small" style="display:block;margin-top:6px">Loading the 3D model and animation clips.</div><div class="bar"><i id="loadBar"></i></div><div class="loadMsg" id="loadMsg">Starting…</div></div></div>
+<div id="loader">
+  <img id="loadingArtwork" src="loading_screen.png" alt="Dockyard Deception loading artwork">
+  <div id="loaderTitle">DOCKYARD DECEPTION</div>
+  <div id="loaderCard" class="panel">
+    <div class="title" id="loaderMainTitle">BUILDING RICK…</div>
+    <div class="small" id="loaderSub" style="display:block;margin-top:6px">Loading the 3D model and animation clips.</div>
+    <div class="bar"><i id="loadBar"></i></div>
+    <div class="loadMsg" id="loadMsg">Starting…</div>
+    <button id="loaderStartBtn" type="button" disabled>LOADING…</button>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -794,6 +827,10 @@ const stage=document.getElementById('stage');
 const loaderUI=document.getElementById('loader');
 const loadBar=document.getElementById('loadBar');
 const loadMsg=document.getElementById('loadMsg');
+const loaderStartBtn=document.getElementById('loaderStartBtn');
+const loaderMainTitle=document.getElementById('loaderMainTitle');
+const loaderSub=document.getElementById('loaderSub');
+let gameAssetsReady=false,loaderMusicPrimed=false;
 const animStatus=document.getElementById('animStatus');
 const speedBadge=document.getElementById('speedBadge');
 const jobBadge=document.getElementById('jobBadge');
@@ -991,6 +1028,24 @@ musicCtl.addEventListener('click',async e=>{
 addEventListener('pointerdown',musicGestureRetry,{passive:true});
 addEventListener('touchstart',musicGestureRetry,{passive:true});
 addEventListener('keydown',musicGestureRetry);
+
+async function enterDockyardFromLoader(){
+  if(!gameAssetsReady)return;
+  // First press deliberately starts Song 1 and leaves the artwork visible, so the loading/title screen is actually seen and heard.
+  if(musicWanted&&!loaderMusicPrimed){
+    loaderMusicPrimed=true;
+    await setMusicScene('loading',true);
+    loaderStartBtn.textContent='ENTER DOCKYARD';
+    loadMsg.textContent='Song 1 playing • tap ENTER DOCKYARD when ready';
+    return;
+  }
+  loaderUI.style.display='none';
+  await setMusicScene('gameplay',true);
+  animStatus.textContent='Animation: IDLE';
+  updateTrainingHUD();
+}
+loaderStartBtn?.addEventListener('click',e=>{e.stopPropagation();enterDockyardFromLoader()});
+
 
 const mouseHint=document.getElementById('mouseHint');
 const crosshair=document.getElementById('crosshair');
@@ -1644,7 +1699,7 @@ const serviceState={
     funnelPicked:false,funnelInstalled:false,freshOil:0,pouring:false,pourLoop:0,
     filterInstalled:false,fillCapRemoved:false
   },
-  spark:{active:false,plug:1,total:6,phase:'remove',swipes:0,wrong:0,startX:0,tracking:false,paid:false}
+  spark:{active:false,plug:1,total:6,phase:'remove',swipes:0,wrong:0,startX:0,tracking:false,paid:false,removeTarget:1,installTarget:1,torqueTarget:60,torqueValue:0,torqueMisses:0}
 };
 const manateeState={
   targetIndex:1,baseY:.02,currentSpeed:.9,targetSpeed:.9,
@@ -2804,19 +2859,68 @@ engineOilPauseBtn.addEventListener('click',()=>{const mode=engineOilDone.dataset
 
 
 // ---------- v18.9 spark-plug minigame ----------
-const sparkPanel=document.getElementById('sparkPanel'),sparkCanvas=document.getElementById('sparkCanvas'),spark3DHost=document.getElementById('spark3DHost'),sparkAssetBadge=document.getElementById('sparkAssetBadge'),sparkInstruction=document.getElementById('sparkInstruction'),sparkProgress=document.getElementById('sparkProgress'),sparkSwipePad=document.getElementById('sparkSwipePad'),sparkSwipeArrow=document.getElementById('sparkSwipeArrow'),sparkSwipeText=document.getElementById('sparkSwipeText'),sparkFeedback=document.getElementById('sparkFeedback'),sparkFail=document.getElementById('sparkFail'),sparkFailTitle=document.getElementById('sparkFailTitle'),sparkFailText=document.getElementById('sparkFailText'),sparkRetry=document.getElementById('sparkRetry');
+const sparkPanel=document.getElementById('sparkPanel'),sparkCanvas=document.getElementById('sparkCanvas'),spark3DHost=document.getElementById('spark3DHost'),sparkAssetBadge=document.getElementById('sparkAssetBadge'),sparkInstruction=document.getElementById('sparkInstruction'),sparkProgress=document.getElementById('sparkProgress'),sparkSwipePad=document.getElementById('sparkSwipePad'),sparkSwipeArrow=document.getElementById('sparkSwipeArrow'),sparkSwipeText=document.getElementById('sparkSwipeText'),sparkFeedback=document.getElementById('sparkFeedback'),sparkFail=document.getElementById('sparkFail'),sparkFailTitle=document.getElementById('sparkFailTitle'),sparkFailText=document.getElementById('sparkFailText'),sparkRetry=document.getElementById('sparkRetry'),torqueMeterWrap=document.getElementById('torqueMeterWrap'),torqueFill=document.getElementById('torqueFill'),torqueTarget=document.getElementById('torqueTarget'),torqueNeedle=document.getElementById('torqueNeedle'),torqueTargetText=document.getElementById('torqueTargetText');
 const spark3d={ready:false,loading:false,renderer:null,scene:null,camera:null,models:{},loop:0};
 function sparkLoad(key,url,size,pos,rot){return new Promise(resolve=>gltfLoader.load(url,g=>{fitEngineModel(g.scene,size);const w=new THREE.Group();w.add(g.scene);w.position.set(...pos);w.rotation.set(...rot);spark3d.scene.add(w);spark3d.models[key]=w;resolve(w)},undefined,()=>resolve(null)))}
 async function initSpark3D(){if(spark3d.ready||spark3d.loading)return;spark3d.loading=true;try{const r=new THREE.WebGLRenderer({canvas:sparkCanvas,alpha:true,antialias:true,powerPreference:'high-performance'});r.setPixelRatio(Math.min(devicePixelRatio,1.35));r.setClearColor(0x000000,0);r.outputEncoding=THREE.sRGBEncoding;const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(34,1,.05,30);cam.position.set(0,.2,6.4);cam.lookAt(0,0,0);sc.add(new THREE.HemisphereLight(0xeafaff,0x18242b,2.1));const dl=new THREE.DirectionalLight(0xffffff,2.4);dl.position.set(4,5,6);sc.add(dl);spark3d.renderer=r;spark3d.scene=sc;spark3d.camera=cam;await Promise.all([sparkLoad('plug','spark_plug.glb',2.25,[-.55,-.15,0],[0,.15,.03]),sparkLoad('ratchet','spark_ratchet.glb',2.65,[.75,.2,.15],[0,-.25,-.18])]);spark3d.ready=true;spark3d.loading=false;const n=['plug','ratchet'].filter(k=>spark3d.models[k]).length;sparkAssetBadge.textContent=`3D SPARK TOOLS ${n}/2`;resizeSpark3D()}catch(e){sparkAssetBadge.textContent='3D SPARK FALLBACK';spark3d.loading=false}}
 function resizeSpark3D(){if(!spark3d.renderer)return;const w=Math.max(1,spark3DHost.clientWidth),h=Math.max(1,spark3DHost.clientHeight);spark3d.renderer.setSize(w,h,false);spark3d.camera.aspect=w/h;spark3d.camera.updateProjectionMatrix()}
 function sparkLoop(){spark3d.loop=0;if(!sparkPanel.classList.contains('active'))return;if(spark3d.renderer){resizeSpark3D();spark3d.renderer.render(spark3d.scene,spark3d.camera)}spark3d.loop=requestAnimationFrame(sparkLoop)}
-function sparkPoseForPhase(){const s=serviceState.spark,p=spark3d.models.plug,r=spark3d.models.ratchet;if(p){p.position.set(-.55,-.15,0);p.rotation.set(0,.15,.03)}if(r){r.position.set(.75,.2,.15);r.rotation.set(0,-.25,-.18)}if(s.phase==='remove'){sparkSwipeArrow.textContent='←';sparkInstruction.textContent='Swipe LEFT to loosen and remove the old plug.';sparkSwipeText.textContent=`${s.swipes} / 4 LEFT SWIPES`;sparkFeedback.textContent='Counterclockwise — keep the swipes clean.'}else if(s.phase==='install'){sparkSwipeArrow.textContent='→';sparkInstruction.textContent='Swipe RIGHT to thread the new plug in.';sparkSwipeText.textContent=`${s.swipes} / 4 RIGHT SWIPES`;sparkFeedback.textContent='Clockwise — thread it in smoothly.'}else if(s.phase==='torque'){sparkSwipeArrow.textContent='→';sparkInstruction.textContent='FINAL TIGHTEN: one controlled RIGHT swipe.';sparkSwipeText.textContent='DON’T OVER-TIGHTEN';sparkFeedback.textContent='Too hard of a final swipe can snap the plug.'}}
-function startSparkPlugService(){serviceOverlay.classList.remove('active');serviceCard.style.display='none';serviceState.active=true;serviceState.step='sparkPlugs';Object.assign(serviceState.spark,{active:true,plug:1,phase:'remove',swipes:0,wrong:0,tracking:false,paid:false});sparkPanel.classList.add('active');sparkFail.classList.remove('show');jobBadge.textContent='ANNUAL SERVICE: SPARK PLUGS';initSpark3D().then(()=>{sparkPoseForPhase();if(!spark3d.loop)spark3d.loop=requestAnimationFrame(sparkLoop)});sparkProgress.textContent=`PLUG 1 / ${serviceState.spark.total}`;sparkPoseForPhase()}
-function resetCurrentSparkPlug(){const s=serviceState.spark;s.phase='remove';s.swipes=0;s.wrong=0;s.tracking=false;sparkFail.classList.remove('show');sparkPoseForPhase()}
+function rollSparkTargets(){
+  const s=serviceState.spark;
+  s.removeTarget=1+Math.floor(Math.random()*6);
+  s.installTarget=1+Math.floor(Math.random()*6);
+  s.torqueTarget=42+Math.floor(Math.random()*39); // 42–80 visual torque target
+  s.torqueValue=0;s.torqueMisses=0;
+}
+function updateTorqueMeter(value=0){
+  const s=serviceState.spark;
+  const v=Math.max(0,Math.min(100,value));
+  if(torqueFill)torqueFill.style.width=v+'%';
+  if(torqueNeedle)torqueNeedle.style.left=v+'%';
+  if(torqueTarget)torqueTarget.style.left=s.torqueTarget+'%';
+  if(torqueTargetText)torqueTargetText.textContent=`TARGET ${s.torqueTarget}`;
+}
+function sparkPoseForPhase(){
+  const s=serviceState.spark,p=spark3d.models.plug,r=spark3d.models.ratchet;
+  if(p){p.position.set(-.55,-.15,0);p.rotation.set(0,.15,.03)}
+  if(r){r.position.set(.75,.2,.15);r.rotation.set(0,-.25,-.18)}
+  torqueMeterWrap?.classList.remove('show');
+  if(s.phase==='remove'){sparkSwipeArrow.textContent='←';sparkInstruction.textContent='Swipe LEFT to loosen and remove the old plug.';sparkSwipeText.textContent=`${s.swipes} / ${s.removeTarget} LEFT SWIPES`;sparkFeedback.textContent='Counterclockwise — the required turns change every plug.'}
+  else if(s.phase==='install'){sparkSwipeArrow.textContent='→';sparkInstruction.textContent='Swipe RIGHT to thread the new plug in.';sparkSwipeText.textContent=`${s.swipes} / ${s.installTarget} RIGHT SWIPES`;sparkFeedback.textContent='Clockwise — the required turns change every plug.'}
+  else if(s.phase==='torque'){sparkSwipeArrow.textContent='→';sparkInstruction.textContent='FINAL TORQUE: match the green target with your RIGHT swipe.';sparkSwipeText.textContent='MATCH THE TORQUE METER';sparkFeedback.textContent='Swipe strength sets torque. Too high can snap the plug.';torqueMeterWrap?.classList.add('show');updateTorqueMeter(s.torqueValue||0)}
+}
+function startSparkPlugService(){serviceOverlay.classList.remove('active');serviceCard.style.display='none';serviceState.active=true;serviceState.step='sparkPlugs';Object.assign(serviceState.spark,{active:true,plug:1,phase:'remove',swipes:0,wrong:0,tracking:false,paid:false});rollSparkTargets();sparkPanel.classList.add('active');sparkFail.classList.remove('show');jobBadge.textContent='ANNUAL SERVICE: SPARK PLUGS';initSpark3D().then(()=>{sparkPoseForPhase();if(!spark3d.loop)spark3d.loop=requestAnimationFrame(sparkLoop)});sparkProgress.textContent=`PLUG 1 / ${serviceState.spark.total}`;sparkPoseForPhase()}
+function resetCurrentSparkPlug(){const s=serviceState.spark;s.phase='remove';s.swipes=0;s.wrong=0;s.tracking=false;rollSparkTargets();sparkFail.classList.remove('show');sparkPoseForPhase()}
 function failSparkPlug(reason){const s=serviceState.spark;s.tracking=false;sparkFailTitle.textContent='SPARK PLUG FAILED';sparkFailText.textContent=reason;sparkFail.classList.add('show');if(spark3d.models.plug)spark3d.models.plug.rotation.z=.65}
 sparkRetry.addEventListener('click',resetCurrentSparkPlug);
 sparkSwipePad.addEventListener('pointerdown',e=>{if(!serviceState.spark.active)return;const s=serviceState.spark;s.tracking=true;s.startX=e.clientX;sparkSwipePad.setPointerCapture?.(e.pointerId)});
-sparkSwipePad.addEventListener('pointerup',e=>{const s=serviceState.spark;if(!s.tracking||sparkFail.classList.contains('show'))return;s.tracking=false;const dx=e.clientX-s.startX,mag=Math.abs(dx);if(mag<42){sparkFeedback.textContent='BIGGER SWIPE';return}const got=dx<0?'LEFT':'RIGHT',want=s.phase==='remove'?'LEFT':'RIGHT';if(got!==want){s.wrong++;sparkFeedback.textContent=`WRONG DIRECTION ${s.wrong}/3`;sparkFeedback.style.color='#ffcf7c';if(s.wrong>=3)failSparkPlug('The plug got crossed up from repeated wrong-direction turns. Retry this plug.');return}s.wrong=0;if(s.phase==='torque'){if(mag>205){failSparkPlug('SNAP! You over-tightened the spark plug. Replace it and retry.');return}sparkFeedback.style.color='#83efb1';sparkFeedback.textContent='TORQUED CORRECTLY ✓';setTimeout(completeSparkPlug,420);return}s.swipes++;sparkFeedback.style.color='#83efb1';sparkFeedback.textContent='GOOD TURN ✓';if(spark3d.models.ratchet){const r=spark3d.models.ratchet,rz=r.rotation.z;r.rotation.z=rz+(got==='LEFT'?-0.30:.30);setTimeout(()=>r.rotation.z=rz,140)}if(spark3d.models.plug){const p=spark3d.models.plug;p.rotation.y+=(got==='LEFT'?-0.35:.35);p.position.x+=(s.phase==='remove'?-0.08:.08)}if(s.swipes>=4){if(s.phase==='remove'){s.phase='install';s.swipes=0;sparkFeedback.textContent='OLD PLUG OUT ✓ • NEW PLUG READY';setTimeout(sparkPoseForPhase,300)}else{s.phase='torque';s.swipes=0;setTimeout(sparkPoseForPhase,250)}}else sparkPoseForPhase()});
+sparkSwipePad.addEventListener('pointerup',e=>{
+  const s=serviceState.spark;if(!s.tracking||sparkFail.classList.contains('show'))return;
+  s.tracking=false;const dx=e.clientX-s.startX,mag=Math.abs(dx);
+  if(mag<42){sparkFeedback.textContent='BIGGER SWIPE';return}
+  const got=dx<0?'LEFT':'RIGHT',want=s.phase==='remove'?'LEFT':'RIGHT';
+  if(got!==want){s.wrong++;sparkFeedback.textContent=`WRONG DIRECTION ${s.wrong}/3`;sparkFeedback.style.color='#ffcf7c';if(s.wrong>=3)failSparkPlug('The plug got crossed up from repeated wrong-direction turns. Retry this plug.');return}
+  s.wrong=0;
+  if(s.phase==='torque'){
+    // Map swipe length to a visible 0–100 torque reading.
+    const torque=Math.max(0,Math.min(100,Math.round((mag-42)/2.05)));
+    s.torqueValue=torque;updateTorqueMeter(torque);
+    const delta=torque-s.torqueTarget;
+    if(delta>13){failSparkPlug(`SNAP! Torque ${torque} was way above target ${s.torqueTarget}. Replace the plug and retry.`);return}
+    if(Math.abs(delta)<=7){sparkFeedback.style.color='#83efb1';sparkFeedback.textContent=`TORQUE MATCH ${torque} ✓`;setTimeout(completeSparkPlug,520);return}
+    s.torqueMisses++;sparkFeedback.style.color='#ffcf7c';sparkFeedback.textContent=delta<0?`TOO LOW ${torque} • TARGET ${s.torqueTarget}`:`TOO HIGH ${torque} • TARGET ${s.torqueTarget}`;
+    if(s.torqueMisses>=3){failSparkPlug(`Missed the torque target three times. Target was ${s.torqueTarget}. Retry this plug.`)}
+    return;
+  }
+  s.swipes++;sparkFeedback.style.color='#83efb1';sparkFeedback.textContent='GOOD TURN ✓';
+  if(spark3d.models.ratchet){const r=spark3d.models.ratchet,rz=r.rotation.z;r.rotation.z=rz+(got==='LEFT'?-0.30:.30);setTimeout(()=>r.rotation.z=rz,140)}
+  if(spark3d.models.plug){const p=spark3d.models.plug;p.rotation.y+=(got==='LEFT'?-0.35:.35);p.position.x+=(s.phase==='remove'?-0.08:.08)}
+  const target=s.phase==='remove'?s.removeTarget:s.installTarget;
+  if(s.swipes>=target){
+    if(s.phase==='remove'){s.phase='install';s.swipes=0;sparkFeedback.textContent='OLD PLUG OUT ✓ • NEW PLUG READY';setTimeout(sparkPoseForPhase,300)}
+    else{s.phase='torque';s.swipes=0;s.torqueValue=0;s.torqueMisses=0;setTimeout(sparkPoseForPhase,250)}
+  }else sparkPoseForPhase();
+});
 let paydayFinishing=false;
 function grantFirstJobPayday(){
   const sp=serviceState.spark;
@@ -2831,6 +2935,10 @@ function grantFirstJobPayday(){
   }
 }
 function showMoneyExplainer(){
+  // Restore Rick immediately after the payday movie. Older builds left his mesh hidden from the service tutorial.
+  if(actor){actor.visible=true;actor.position.copy(controller.pos);actor.rotation.y=controller.yaw;}
+  if(jobOutboard)jobOutboard.visible=false;
+  controller.special=false;controller.mobileRunHeld=false;
   serviceOverlay.classList.add('active');serviceCard.style.display='block';
   setServiceText('PAYDAY — $300','Your <b>cash</b> can be used to buy <b>tools, health, energy, outfits, and helpers</b>. Earn more by completing jobs.','CASH UNLOCKED • $300');
   serviceButtons.innerHTML='';
@@ -2840,6 +2948,8 @@ function showMoneyExplainer(){
     serviceState.active=false;
     serviceState.step='jobComplete';
     if(serviceState.spark)serviceState.spark.active=false;
+    if(actor){actor.visible=true;actor.position.copy(controller.pos);actor.rotation.y=controller.yaw;}
+    if(jobOutboard)jobOutboard.visible=false;
     controller.special=false;
     controller.mobileRunHeld=false;
     jobBadge.textContent='JOB COMPLETE • PAID $300';
@@ -2870,7 +2980,7 @@ skipPaydayCutscene?.addEventListener('click',finishPaydayCutscene);
 function completeSparkPlug(){
   const s=serviceState.spark;
   if(s.plug<s.total){
-    s.plug++;s.phase='remove';s.swipes=0;s.wrong=0;
+    s.plug++;s.phase='remove';s.swipes=0;s.wrong=0;rollSparkTargets();
     sparkProgress.textContent=`PLUG ${s.plug} / ${s.total}`;
     sparkPoseForPhase();
     return;
@@ -3204,7 +3314,12 @@ async function loadAll(){try{
  progress('Phone ready');
 
  mixer.addEventListener('finished',e=>{if(controller.special && e.action===currentAction){if(controller.specialName==='turn')controller.yaw-=Math.PI/2;controller.special=false;controller.specialName='';play('idle',{fade:.12})}});
- loaderUI.style.display='none';setMusicScene('gameplay',true);animStatus.textContent='Animation: IDLE'; updateTrainingHUD();
+ gameAssetsReady=true;
+ loadBar.style.width='100%';
+ loadMsg.textContent='Ready • start Song 1, then enter the dockyard';
+ if(loaderMainTitle)loaderMainTitle.textContent='READY TO WORK';
+ if(loaderSub)loaderSub.textContent='The marina is loaded.';
+ if(loaderStartBtn){loaderStartBtn.disabled=false;loaderStartBtn.textContent='START SONG 1';}
 }catch(err){console.error(err);loadMsg.classList.add('error');loadMsg.textContent='Could not load Rick: '+err.message+' — make sure you are online so Three.js can load.'}}
 loadAll();
 
@@ -3688,5 +3803,5 @@ animate();
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.75))});
 </script>
-<!-- Dockyard Deception v18.17: higher oil stream + embedded loading artwork -->
+<!-- Dockyard Deception v18.18: payday visibility + lower pan + persistent loading art + randomized 6-plug torque game -->
 </body></html>
