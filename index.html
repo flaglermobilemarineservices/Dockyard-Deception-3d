@@ -430,7 +430,7 @@
 /* v18.8: no top HUD + solid NPC collision + visible 3D oil-service assets */
 #hud{display:none!important}
 
-/* v18.9.1 — multiplayer spawn/collision hotfix + spark-plug service + 3-song playlist */
+/* v18.9.2 — single-player Gage movement fix + multiplayer collision hotfix + spark-plug service + 3-song playlist */
 #multiBtn{position:absolute;left:12px;top:12px;z-index:21;border:1px solid rgba(126,231,255,.5);background:rgba(4,16,23,.78);color:#fff;border-radius:999px;padding:9px 12px;font-weight:1000;font-size:11px;cursor:pointer;backdrop-filter:blur(6px)}
 #multiBtn.connected{border-color:#78efac;color:#a8ffca;background:rgba(10,55,38,.82)}
 #multiOverlay{position:absolute;inset:0;z-index:140;display:none;place-items:center;background:rgba(0,0,0,.68);backdrop-filter:blur(7px);pointer-events:auto}
@@ -1392,8 +1392,8 @@ let actor=null,mixer=null,currentAction=null,currentName='';const actions={};let
 let manateeBoat=null;
 let gageNPC=null,gageMixer=null,gageRunAction=null,gageIdleAction=null;
 const gageState={
-  mode:'none',target:null,idleUntil:0,speed:1.05,lastNode:-1,currentNode:0,
-  nextNode:1,loaded:false
+  mode:'none',target:null,idleUntil:0,speed:1.05,lastNode:-1,currentNode:1,
+  nextNode:3,loaded:false
 };
 
 // Chas starts as an ambient dock NPC. Later his client job can flip clientMode on
@@ -1557,10 +1557,20 @@ function updateGageAI(dt,time){
   dir.normalize();
   const nextPos=gageNPC.position.clone().addScaledVector(dir,gageState.speed*dt);
 
-  // Rick gets right-of-way. Gage simply waits rather than clipping through him.
-  if(nextPos.distanceTo(controller.pos)<2.0 || (chasNPC && nextPos.distanceTo(chasNPC.position)<1.35)){
+  // Rick gets right-of-way, but if Gage ever starts too close he must be allowed
+  // to WALK AWAY instead of being trapped forever inside the collision radius.
+  const rOld=gageNPC.position.distanceTo(controller.pos);
+  const rNew=nextPos.distanceTo(controller.pos);
+  const blockedByRick=(rNew<2.0 && !(rOld<2.0 && rNew>rOld+.001));
+  let blockedByChas=false;
+  if(chasNPC){
+    const cOld=gageNPC.position.distanceTo(chasNPC.position);
+    const cNew=nextPos.distanceTo(chasNPC.position);
+    blockedByChas=(cNew<1.35 && !(cOld<1.35 && cNew>cOld+.001));
+  }
+  if(blockedByRick||blockedByChas){
     gageSetAction('idle');
-    gageState.idleUntil=time+1.25;
+    gageState.idleUntil=time+.65;
     return;
   }
 
@@ -1652,9 +1662,18 @@ function updateChasAI(dt,time){
   }
   dir.normalize();
   const nextPos=chasNPC.position.clone().addScaledVector(dir,chasState.speed*dt);
-  // Rick gets right-of-way, and Chas also waits if Gage is directly in his path.
-  if(nextPos.distanceTo(controller.pos)<2.0 || (gageNPC && nextPos.distanceTo(gageNPC.position)<1.35)){
-    chasSetAction('idle');chasState.idleUntil=time+1.1;return;
+  // Rick gets right-of-way, but never trap Chas if a character overlaps him.
+  const rOld=chasNPC.position.distanceTo(controller.pos);
+  const rNew=nextPos.distanceTo(controller.pos);
+  const blockedByRick=(rNew<2.0 && !(rOld<2.0 && rNew>rOld+.001));
+  let blockedByGage=false;
+  if(gageNPC){
+    const gOld=chasNPC.position.distanceTo(gageNPC.position);
+    const gNew=nextPos.distanceTo(gageNPC.position);
+    blockedByGage=(gNew<1.35 && !(gOld<1.35 && gNew>gOld+.001));
+  }
+  if(blockedByRick||blockedByGage){
+    chasSetAction('idle');chasState.idleUntil=time+.65;return;
   }
   const surfaceY=getWalkSurfaceY(nextPos.x,nextPos.z);
   if(surfaceY===null){chasStartIdle(time);return;}
@@ -2797,7 +2816,7 @@ async function loadAll(){try{
  gageNPC.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false}});
  const gageBox=new THREE.Box3().setFromObject(gageNPC),gageSize=new THREE.Vector3();gageBox.getSize(gageSize);
  gageNPC.scale.setScalar(1.78/Math.max(.001,gageSize.y));
- gageNPC.position.copy(gageDockNodes[0].p);
+ gageNPC.position.copy(gageDockNodes[1].p);
  scene.add(gageNPC);
  gageMixer=new THREE.AnimationMixer(gageNPC);
  const gageRunClip=cleanClip(bestClip(gageRunGLTF));
@@ -2811,9 +2830,9 @@ async function loadAll(){try{
  gageIdleClip.name='Gage idle';
  gageIdleAction=gageMixer.clipAction(gageIdleClip);
  gageState.loaded=true;
- gageState.currentNode=0;
+ gageState.currentNode=1;
  gageState.lastNode=-1;
- gageState.nextNode=1;
+ gageState.nextNode=3;
  gageState.target=null;
  gageSetAction('idle');
  gageState.idleUntil=clock.elapsedTime+10+Math.random()*12;
