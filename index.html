@@ -470,6 +470,10 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 #sparkProgress{margin-top:3px!important;font-size:11px!important}
 @media(pointer:coarse){#moneyMeter{right:8px;top:8px;padding:6px 9px;font-size:12px}#serviceCard{width:min(420px,72vw)}#fullscreenBtn{width:34px;height:34px;font-size:16px;bottom:6px}}
 
+
+/* v18.12 — gear pan truly below stream + smoother ambient NPCs */
+#gearOilPan3DHost{inset:0!important;transform:none!important}
+
 /* v18.11 — pan placement, unobtrusive fullscreen, payday + decline flow */
 #fullscreenBtn{left:auto!important;right:5px!important;top:44%!important;bottom:auto!important;transform:translateY(-50%)!important;width:25px!important;height:25px!important;font-size:13px!important;opacity:.24!important;border-radius:8px!important}
 #fullscreenBtn:hover,#fullscreenBtn:active{opacity:.72!important;transform:translateY(-50%) scale(.96)!important}
@@ -1570,7 +1574,7 @@ function gageSetAction(mode){
   }else{
     gageIdleAction.fadeOut(.22);
     gageRunAction.reset().setLoop(THREE.LoopRepeat,Infinity).fadeIn(.22).play();
-    gageRunAction.setEffectiveTimeScale(.88+Math.random()*.10);
+    gageRunAction.setEffectiveTimeScale(.92);
   }
   gageState.mode=mode;
 }
@@ -1604,10 +1608,6 @@ function updateGageAI(dt,time){
   gageMixer.update(dt);
 
   if(gageState.mode==='idle'){
-    // He generally stays put. If Rick is nearly touching him, he'll leave sooner.
-    if(gageNPC.position.distanceTo(controller.pos)<1.55){
-      gageState.idleUntil=Math.min(gageState.idleUntil,time+.8);
-    }
     if(time>=gageState.idleUntil)gageChooseNextNode();
     return;
   }
@@ -1635,16 +1635,13 @@ function updateGageAI(dt,time){
   // to WALK AWAY instead of being trapped forever inside the collision radius.
   const rOld=gageNPC.position.distanceTo(controller.pos);
   const rNew=nextPos.distanceTo(controller.pos);
-  const blockedByRick=(rNew<2.0 && !(rOld<2.0 && rNew>rOld+.001));
-  let blockedByChas=false;
-  if(chasNPC){
-    const cOld=gageNPC.position.distanceTo(chasNPC.position);
-    const cNew=nextPos.distanceTo(chasNPC.position);
-    blockedByChas=(cNew<1.35 && !(cOld<1.35 && cNew>cOld+.001));
-  }
-  if(blockedByRick||blockedByChas){
-    gageSetAction('idle');
-    gageState.idleUntil=time+.65;
+  const blockedByRick=(rNew<1.75 && !(rOld<1.75 && rNew>rOld+.001));
+  if(blockedByRick){
+    // Pause instead of rapidly toggling walk/idle against Rick's collision circle.
+    // Chas and Gage use staggered patrol timing, so they do not hard-block each other.
+    gageState.target=null;
+    gageStartIdle(time);
+    gageState.idleUntil=time+1.6;
     return;
   }
 
@@ -1656,7 +1653,7 @@ function updateGageAI(dt,time){
 
   gageNPC.position.copy(nextPos);
   gageNPC.position.y=surfaceY;
-  gageNPC.rotation.y=Math.atan2(dir.x,dir.z)+Math.PI;
+  gageNPC.rotation.y=lerpAngle(gageNPC.rotation.y,Math.atan2(dir.x,dir.z)+Math.PI,Math.min(1,dt*6.5));
 }
 
 
@@ -1688,7 +1685,7 @@ function chasSetAction(mode){
   }else{
     chasIdleAction.fadeOut(.22);
     chasWalkAction.reset().setLoop(THREE.LoopRepeat,Infinity).fadeIn(.22).play();
-    chasWalkAction.setEffectiveTimeScale(.88+Math.random()*.10);
+    chasWalkAction.setEffectiveTimeScale(.90);
   }
   chasState.mode=mode;
 }
@@ -1721,7 +1718,6 @@ function updateChasAI(dt,time){
     return;
   }
   if(chasState.mode==='idle'){
-    if(chasNPC.position.distanceTo(controller.pos)<1.6)chasState.idleUntil=Math.min(chasState.idleUntil,time+.75);
     if(time>=chasState.idleUntil)chasChooseNextNode();
     return;
   }
@@ -1739,20 +1735,17 @@ function updateChasAI(dt,time){
   // Rick gets right-of-way, but never trap Chas if a character overlaps him.
   const rOld=chasNPC.position.distanceTo(controller.pos);
   const rNew=nextPos.distanceTo(controller.pos);
-  const blockedByRick=(rNew<2.0 && !(rOld<2.0 && rNew>rOld+.001));
-  let blockedByGage=false;
-  if(gageNPC){
-    const gOld=chasNPC.position.distanceTo(gageNPC.position);
-    const gNew=nextPos.distanceTo(gageNPC.position);
-    blockedByGage=(gNew<1.35 && !(gOld<1.35 && gNew>gOld+.001));
-  }
-  if(blockedByRick||blockedByGage){
-    chasSetAction('idle');chasState.idleUntil=time+.65;return;
+  const blockedByRick=(rNew<1.75 && !(rOld<1.75 && rNew>rOld+.001));
+  if(blockedByRick){
+    chasState.target=null;
+    chasStartIdle(time);
+    chasState.idleUntil=time+1.8;
+    return;
   }
   const surfaceY=getWalkSurfaceY(nextPos.x,nextPos.z);
   if(surfaceY===null){chasStartIdle(time);return;}
   chasNPC.position.copy(nextPos);chasNPC.position.y=surfaceY;
-  chasNPC.rotation.y=Math.atan2(dir.x,dir.z)+Math.PI;
+  chasNPC.rotation.y=lerpAngle(chasNPC.rotation.y,Math.atan2(dir.x,dir.z)+Math.PI,Math.min(1,dt*6.0));
 }
 
 function updateChas(dt,time){
@@ -1766,6 +1759,22 @@ function updateChas(dt,time){
 }
 
 function cleanClip(clip){const c=clip.clone();for(const tr of c.tracks){if(tr.name.includes('mixamorig:Hips.position')){for(let i=0;i<tr.values.length;i+=3){tr.values[i]=tr.values[0];tr.values[i+2]=tr.values[2]}}}return c}
+function cleanNPCClip(clip){
+  const c=clip.clone();
+  c.tracks=c.tracks.filter(tr=>{
+    const n=(tr.name||'').toLowerCase();
+    if(n.endsWith('.scale'))return false;
+    if(n.endsWith('.position')){
+      if(n.includes('hips.position')){
+        for(let i=0;i<tr.values.length;i+=3){tr.values[i]=tr.values[0];tr.values[i+2]=tr.values[2]}
+        return true;
+      }
+      return false;
+    }
+    return true;
+  });
+  return c;
+}
 function bestClip(gltf){return gltf.animations.find(a=>!a.name.endsWith('.001'))||gltf.animations[0]}
 function play(name,{once=false,fade=.16}={}){const a=actions[name];if(!a||currentAction===a)return;if(currentAction)currentAction.fadeOut(fade);a.reset();a.enabled=true;a.setEffectiveWeight(1);a.setEffectiveTimeScale(1);a.setLoop(once?THREE.LoopOnce:THREE.LoopRepeat,once?1:Infinity);a.clampWhenFinished=once;a.fadeIn(fade).play();currentAction=a;currentName=name;animStatus.textContent='Animation: '+name.toUpperCase()}
 
@@ -1984,7 +1993,7 @@ function initGearOilPan3D(){
     scene3.add(new THREE.HemisphereLight(0xf3fbff,0x172127,2.4));const key=new THREE.DirectionalLight(0xffffff,2.0);key.position.set(3,6,5);scene3.add(key);
     gearOilPan3d.renderer=renderer;gearOilPan3d.scene=scene3;gearOilPan3d.camera=cam;
     gltfLoader.load('gear_oil_pan.glb',g=>{
-      fitGearPanModel(g.scene,1.90);g.scene.scale.x*=1.55;g.scene.scale.y*=.75;g.scene.scale.z*=.55;
+      fitGearPanModel(g.scene,1.90);g.scene.scale.x*=1.55;g.scene.scale.y*=.25;g.scene.scale.z*=.15;
       g.scene.traverse(o=>{if(o.isMesh&&o.material){const mats=Array.isArray(o.material)?o.material:[o.material];o.material=mats.map(m=>{const c=m.clone();if(c.color)c.color.set(0x090b0d);if('metalness' in c)c.metalness=Math.max(.18,c.metalness||0);if('roughness' in c)c.roughness=.72;return c});if(o.material.length===1)o.material=o.material[0]}});
       const wrap=new THREE.Group();wrap.add(g.scene);/* broad X/Z opening faces +Y: flat/open side UP */wrap.rotation.set(0,.08,0);wrap.position.set(0,-1.90,.25);scene3.add(wrap);
       gearOilPan3d.model=wrap;gearOilPan3d.ready=true;gearOilPan3d.loading=false;resizeGearOilPan3D();
@@ -2961,14 +2970,14 @@ async function loadAll(){try{
  gageNPC.position.copy(gageDockNodes[1].p);
  scene.add(gageNPC);
  gageMixer=new THREE.AnimationMixer(gageNPC);
- const gageRunClip=cleanClip(bestClip(gageRunGLTF));
+ const gageRunClip=cleanNPCClip(bestClip(gageRunGLTF));
  gageRunClip.name='Gage casual walk';
  gageRunAction=gageMixer.clipAction(gageRunClip);
  progress('Gage walking ready');
 
  loadMsg.textContent='Loading Gage idle…';
  const gageIdleGLTF=await parseGLB(GAGE_IDLE_B64);
- const gageIdleClip=cleanClip(bestClip(gageIdleGLTF));
+ const gageIdleClip=cleanNPCClip(bestClip(gageIdleGLTF));
  gageIdleClip.name='Gage idle';
  gageIdleAction=gageMixer.clipAction(gageIdleClip);
  gageState.loaded=true;
@@ -2993,14 +3002,14 @@ async function loadAll(){try{
  chasNPC.position.copy(gageDockNodes[chasState.currentNode].p);
  scene.add(chasNPC);
  chasMixer=new THREE.AnimationMixer(chasNPC);
- const chasWalkClip=cleanClip(bestClip(chasWalkGLTF));
+ const chasWalkClip=cleanNPCClip(bestClip(chasWalkGLTF));
  chasWalkClip.name='Chas casual walk';
  chasWalkAction=chasMixer.clipAction(chasWalkClip);
  progress('Chas walking ready');
 
  loadMsg.textContent='Loading Chas idle…';
  const chasIdleGLTF=await new Promise((resolve,reject)=>gltfLoader.load('chas_idle.glb',resolve,undefined,reject));
- const chasIdleClip=cleanClip(bestClip(chasIdleGLTF));
+ const chasIdleClip=cleanNPCClip(bestClip(chasIdleGLTF));
  chasIdleClip.name='Chas idle';
  chasIdleAction=chasMixer.clipAction(chasIdleClip);
  chasState.loaded=true;
@@ -3510,4 +3519,5 @@ animate();
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.75))});
 </script>
+<!-- Dockyard Deception v18.12: lower gear pan + stable Gage/Chas NPC motion -->
 </body></html>
