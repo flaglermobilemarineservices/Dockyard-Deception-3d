@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Dockyard Deception — v18.6 3D Engine Oil Service</title>
+<title>Dockyard Deception — v18.9 Two Player + Spark Plugs</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07121a;color:white;font-family:Inter,system-ui,Arial,sans-serif;touch-action:none}body{position:relative}
 #stage{position:absolute;inset:0}canvas{display:block;width:100%;height:100%}
@@ -429,12 +429,38 @@
 
 /* v18.8: no top HUD + solid NPC collision + visible 3D oil-service assets */
 #hud{display:none!important}
+
+/* v18.9 — 2-player Rick/Gage + spark-plug service + 3-song playlist */
+#multiBtn{position:absolute;left:12px;top:12px;z-index:21;border:1px solid rgba(126,231,255,.5);background:rgba(4,16,23,.78);color:#fff;border-radius:999px;padding:9px 12px;font-weight:1000;font-size:11px;cursor:pointer;backdrop-filter:blur(6px)}
+#multiBtn.connected{border-color:#78efac;color:#a8ffca;background:rgba(10,55,38,.82)}
+#multiOverlay{position:absolute;inset:0;z-index:140;display:none;place-items:center;background:rgba(0,0,0,.68);backdrop-filter:blur(7px);pointer-events:auto}
+#multiOverlay.show{display:grid}
+#multiCard{width:min(520px,92vw);padding:20px;border-radius:19px;background:#081b25;border:1px solid rgba(126,231,255,.55);box-shadow:0 24px 70px rgba(0,0,0,.6);text-align:center}
+#multiCard h2{margin:0 0 5px;font-size:26px}#multiCard p{margin:5px 0 13px;color:#bcdbe4;font-size:13px;line-height:1.4}
+.multiRow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.multiAction{min-height:46px;padding:10px 15px;border-radius:12px;border:1px solid rgba(255,255,255,.35);background:#176b86;color:white;font-weight:1000;font-size:14px}.multiAction.alt{background:#37434a}.multiAction.danger{background:#71353a}
+#roomCodeInput{width:170px;min-height:46px;text-transform:uppercase;text-align:center;letter-spacing:.16em;border-radius:12px;border:1px solid #5faec3;background:#031219;color:white;font-weight:1000;font-size:18px}
+#multiStatus{margin-top:12px;min-height:42px;padding:9px;border-radius:11px;background:rgba(0,0,0,.28);font-size:13px;color:#d9f6ff}
+#multiClose{position:absolute;right:13px;top:10px;background:none;border:0;color:white;font-size:25px}#multiCard{position:relative}
+body.gage-player [data-action="backflip"],body.gage-player [data-action="breakdance"]{display:none!important}
+
+#sparkPanel{position:absolute;inset:0;z-index:132;display:none;background:radial-gradient(circle at 50% 35%,rgba(22,58,70,.96),rgba(2,9,14,.98));pointer-events:auto;color:white}
+#sparkPanel.active{display:block}
+#sparkHeader{position:absolute;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:4;width:min(680px,94vw);padding:10px 14px;border-radius:15px;background:rgba(4,17,24,.86);border:1px solid rgba(126,231,255,.45);text-align:center}
+#sparkHeader b{font-size:clamp(18px,4vw,28px)}#sparkInstruction{margin-top:4px;color:#cae8ef;font-size:13px}#sparkProgress{margin-top:5px;font-weight:1000;color:#83efb1}
+#spark3DHost{position:absolute;inset:74px 0 150px;overflow:hidden}#sparkCanvas{width:100%;height:100%;display:block}
+#sparkAssetBadge{position:absolute;right:12px;top:84px;z-index:4;padding:6px 9px;border-radius:999px;background:rgba(0,0,0,.55);font-size:11px;font-weight:1000;color:#86f2b4}
+#sparkSwipePad{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(600px,92vw);height:118px;border-radius:18px;border:2px solid rgba(255,221,91,.7);background:rgba(3,14,20,.80);touch-action:none;text-align:center;padding:10px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px}
+#sparkSwipeArrow{font-size:40px;font-weight:1000;color:#ffe061;line-height:.8}#sparkSwipeText{font-weight:1000;font-size:16px}#sparkFeedback{font-size:12px;color:#bfe3ec;min-height:17px}
+#sparkFail{position:absolute;inset:0;z-index:8;display:none;place-items:center;background:rgba(25,0,0,.84)}#sparkFail.show{display:grid}#sparkFailCard{width:min(450px,88vw);padding:23px;border-radius:18px;background:#341014;border:2px solid #ff6d76;text-align:center}#sparkFailCard b{font-size:25px;color:#ff9da4}#sparkRetry{margin-top:13px;min-height:46px;padding:10px 16px;border-radius:12px;border:0;background:#fff;color:#321015;font-weight:1000}
+@media(pointer:coarse){#multiBtn{left:10px;top:10px;padding:10px 13px;font-size:12px}#spark3DHost{inset:88px 0 145px}}
+
 </style>
 </head>
 <body>
 <div id="stage"></div>
 <button id="fullscreenBtn" type="button">FULL SCREEN</button>
 <button id="musicCtl" type="button">MUSIC: ON</button>
+<button id="multiBtn" type="button">2 PLAYER</button>
 
 <div id="cutsceneOverlay">
   <video id="jobCutscene" playsinline preload="auto" src="first_job_call.mp4"></video>
@@ -454,8 +480,22 @@
   <div class="big">START THE ANNUAL SERVICE</div>
   <div class="sub">The outboard is ready • first job setup begins</div>
 </div>
-<audio id="boatDaddyMusic" preload="auto" loop src="boat_daddy_rick.mp3"></audio>
+<audio id="boatDaddyMusic" preload="auto" src="boat_daddy_rick.mp3"></audio>
+<audio id="boatDaddyRides" preload="auto" src="boat_daddy_rides.mp3"></audio>
+<audio id="boatDaddySong3" preload="auto" src="boat_daddy_rick_song3.mp3"></audio>
 
+<div id="multiOverlay">
+  <div id="multiCard">
+    <button id="multiClose" type="button">×</button>
+    <h2>DOCKYARD 2-PLAYER</h2>
+    <p><b>Host = Rick</b> • <b>Join = Gage</b><br>Online peer-to-peer room for exactly two players.</p>
+    <div class="multiRow"><button id="hostGameBtn" class="multiAction" type="button">HOST AS RICK</button></div>
+    <p style="margin-top:14px">—or join Rick as Gage—</p>
+    <div class="multiRow"><input id="roomCodeInput" maxlength="6" placeholder="ROOM CODE"><button id="joinGameBtn" class="multiAction" type="button">JOIN AS GAGE</button></div>
+    <div id="multiStatus">Offline single-player • Gage uses NPC AI.</div>
+    <div class="multiRow" style="margin-top:10px"><button id="disconnectGameBtn" class="multiAction danger" type="button" style="display:none">DISCONNECT</button></div>
+  </div>
+</div>
 <div id="serviceOverlay">
   <div id="levelControls">
     <div id="levelAngle">MOTOR ANGLE: 22°</div>
@@ -606,6 +646,13 @@
   </div>
 </div>
 
+<div id="sparkPanel">
+  <div id="sparkHeader"><b>SPARK PLUG SERVICE</b><div id="sparkInstruction">Swipe LEFT to loosen the spark plug.</div><div id="sparkProgress">PLUG 1 / 4</div></div>
+  <div id="sparkAssetBadge">3D TOOLS LOADING…</div>
+  <div id="spark3DHost"><canvas id="sparkCanvas"></canvas></div>
+  <div id="sparkSwipePad"><div id="sparkSwipeArrow">←</div><div id="sparkSwipeText">0 / 4 LEFT SWIPES</div><div id="sparkFeedback">Use the ratchet to break the plug loose.</div></div>
+  <div id="sparkFail"><div id="sparkFailCard"><b id="sparkFailTitle">SPARK PLUG FAILED</b><div id="sparkFailText" style="margin-top:8px;color:#ffd2d5"></div><button id="sparkRetry" type="button">RETRY THIS PLUG</button></div></div>
+</div>
 <div id="mouseHint">CLICK GAME TO USE MOUSE CAMERA</div>
 <div id="crosshair"></div>
 <div id="weatherBadge">RAIN • GUSTY WIND</div>
@@ -627,6 +674,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="rick_01.js"></script>
 <script src="rick_02.js"></script>
 <script src="rick_03.js"></script>
@@ -813,34 +861,19 @@ const dipstickOilLine=document.getElementById('dipstickOilLine');
 const checkDipstickBtn=document.getElementById('checkDipstickBtn');
 
 const boatDaddyMusic=document.getElementById('boatDaddyMusic');
+const boatDaddyRides=document.getElementById('boatDaddyRides');
+const boatDaddySong3=document.getElementById('boatDaddySong3');
 const musicCtl=document.getElementById('musicCtl');
-boatDaddyMusic.volume=.58;
-let musicWanted=true;
-let musicStarted=false;
-
-async function startMusicFromGesture(){
-  if(!musicWanted || musicStarted) return;
-  try{
-    await boatDaddyMusic.play();
-    musicStarted=true;
-    musicCtl.textContent='MUSIC: ON';
-  }catch(e){}
-}
-
-musicCtl.addEventListener('click',async e=>{
-  e.stopPropagation();
-  musicWanted=!musicWanted;
-  if(musicWanted){
-    musicCtl.textContent='MUSIC: ON';
-    try{
-      await boatDaddyMusic.play();
-      musicStarted=true;
-    }catch(e){}
-  }else{
-    boatDaddyMusic.pause();
-    musicCtl.textContent='MUSIC: OFF';
-  }
-});
+const musicPlaylist=[boatDaddyMusic,boatDaddyRides,boatDaddySong3];
+let musicIndex=0,musicWanted=true,musicStarted=false,musicVolume=.58;
+function currentMusic(){return musicPlaylist[musicIndex]}
+function setMusicVolume(v){musicVolume=v;musicPlaylist.forEach(a=>a.volume=v)}
+function stopOtherMusic(keep){musicPlaylist.forEach(a=>{if(a!==keep)a.pause()})}
+async function playMusicIndex(i,reset=false){musicIndex=(i+musicPlaylist.length)%musicPlaylist.length;const a=currentMusic();stopOtherMusic(a);if(reset)a.currentTime=0;setMusicVolume(musicVolume);if(musicWanted){try{await a.play();musicStarted=true}catch(e){}}}
+musicPlaylist.forEach((a,i)=>a.addEventListener('ended',()=>{if(i===musicIndex)playMusicIndex((i+1)%musicPlaylist.length,true)}));
+setMusicVolume(.58);
+async function startMusicFromGesture(){if(!musicWanted||musicStarted)return;await playMusicIndex(musicIndex,false);musicCtl.textContent='MUSIC: ON'}
+musicCtl.addEventListener('click',async e=>{e.stopPropagation();musicWanted=!musicWanted;if(musicWanted){musicCtl.textContent='MUSIC: ON';await playMusicIndex(musicIndex,false)}else{musicPlaylist.forEach(a=>a.pause());musicCtl.textContent='MUSIC: OFF'}});
 
 // Browsers block autoplay until the first real click/tap/key press.
 addEventListener('pointerdown',startMusicFromGesture,{once:true});
@@ -1395,7 +1428,8 @@ const serviceState={
     filterTurns:0,gestureStartX:0,gestureTracking:false,gasketOiled:false,
     funnelPicked:false,funnelInstalled:false,freshOil:0,pouring:false,pourLoop:0,
     filterInstalled:false,fillCapRemoved:false
-  }
+  },
+  spark:{active:false,plug:1,total:4,phase:'remove',swipes:0,wrong:0,startX:0,tracking:false}
 };
 const manateeState={
   targetIndex:1,baseY:.02,currentSpeed:.9,targetSpeed:.9,
@@ -1414,6 +1448,11 @@ function updateTrainingHUD(){
   jobBadge.textContent=`TRAINING W ${Math.min(15,callState.walkSteps)}/15 • R ${Math.min(20,callState.runSteps)}/20 • JUMP ${callState.jumped?'✓':'○'} • TRICK ${callState.trick?'✓':'○'}`;
 }
 const controller={pos:new THREE.Vector3(0,.18,-27.0),yaw:0,vertical:0,groundY:.18,onGround:true,jumping:false,special:false,specialTimer:0,specialName:'',runToggle:false,mobileRunHeld:false};
+
+const multiplayer={peer:null,conn:null,connected:false,role:'offline',room:'',remote:{x:0,y:.18,z:-27,yaw:0,moving:false,running:false},remoteChas:null,lastSend:0,localMoving:false,localRunning:false};
+function isGuestPlayer(){return multiplayer.connected&&multiplayer.role==='guest'}
+function isHostPlayer(){return multiplayer.connected&&multiplayer.role==='host'}
+
 const cameraRig={yaw:Math.PI,pitch:.38,distance:5.4};
 const keys={};const input={x:0,y:0,lookX:0,lookY:0};
 let idleStillTime=0;
@@ -1486,7 +1525,7 @@ function gageStartIdle(time){
   gageSetAction('idle');
 }
 
-function updateGage(dt,time){
+function updateGageAI(dt,time){
   if(!gageState.loaded||!gageNPC||!gageMixer)return;
   gageMixer.update(dt);
 
@@ -1537,6 +1576,23 @@ function updateGage(dt,time){
 }
 
 
+function updateGage(dt,time){
+  if(!gageState.loaded||!gageNPC||!gageMixer)return;
+  if(!multiplayer.connected){updateGageAI(dt,time);return}
+  gageMixer.update(dt);
+  if(isGuestPlayer()){
+    gageNPC.position.copy(controller.pos);gageNPC.rotation.y=controller.yaw;
+    gageSetAction(multiplayer.localMoving?'run':'idle');
+    if(gageRunAction)gageRunAction.setEffectiveTimeScale(multiplayer.localRunning?1.35:.92);
+  }else{
+    const r=multiplayer.remote;
+    gageNPC.position.lerp(new THREE.Vector3(r.x,r.y,r.z),Math.min(1,dt*12));
+    gageNPC.rotation.y=lerpAngle(gageNPC.rotation.y,r.yaw,Math.min(1,dt*12));
+    gageSetAction(r.moving?'run':'idle');
+    if(gageRunAction)gageRunAction.setEffectiveTimeScale(r.running?1.35:.92);
+  }
+}
+
 // Chas shares the same safe dock graph as Gage, but starts farther up the marina
 // and walks a little slower so the two NPCs don't feel synchronized.
 function chasSetAction(mode){
@@ -1573,7 +1629,7 @@ function chasStartIdle(time){
   chasSetAction('idle');
 }
 
-function updateChas(dt,time){
+function updateChasAI(dt,time){
   if(!chasState.loaded||!chasNPC||!chasMixer)return;
   chasMixer.update(dt);
   if(chasState.clientMode){
@@ -1604,6 +1660,16 @@ function updateChas(dt,time){
   if(surfaceY===null){chasStartIdle(time);return;}
   chasNPC.position.copy(nextPos);chasNPC.position.y=surfaceY;
   chasNPC.rotation.y=Math.atan2(dir.x,dir.z)+Math.PI;
+}
+
+function updateChas(dt,time){
+  if(!chasState.loaded||!chasNPC||!chasMixer)return;
+  if(!multiplayer.connected||isHostPlayer()){updateChasAI(dt,time);return}
+  chasMixer.update(dt);
+  const c=multiplayer.remoteChas;if(!c)return;
+  chasNPC.position.lerp(new THREE.Vector3(c.x,c.y,c.z),Math.min(1,dt*10));
+  chasNPC.rotation.y=lerpAngle(chasNPC.rotation.y,c.yaw,Math.min(1,dt*10));
+  chasSetAction(c.mode==='idle'?'idle':'walk');
 }
 
 function cleanClip(clip){const c=clip.clone();for(const tr of c.tracks){if(tr.name.includes('mixamorig:Hips.position')){for(let i=0;i<tr.values.length;i+=3){tr.values[i]=tr.values[0];tr.values[i+2]=tr.values[2]}}}return c}
@@ -1678,12 +1744,12 @@ function showFirstJobPopup(){
 function finishFirstJobCutscene(){
   if(!firstJobState.cutscenePlaying)return;
   firstJobState.cutscenePlaying=false;jobCutscene.pause();cutsceneOverlay.style.display='none';
-  boatDaddyMusic.volume=.58;showFirstJobPopup();activateFirstJobWaypoint();
+  setMusicVolume(.58);showFirstJobPopup();activateFirstJobWaypoint();
 }
 async function playFirstJobCutscene(){
   if(firstJobState.started)return;
   firstJobState.started=true;firstJobState.cutscenePlaying=true;document.exitPointerLock?.();
-  cutsceneOverlay.style.display='flex';boatDaddyMusic.volume=.08;jobCutscene.currentTime=0;
+  cutsceneOverlay.style.display='flex';setMusicVolume(.08);jobCutscene.currentTime=0;
   try{await jobCutscene.play();}catch(e){finishFirstJobCutscene();}
 }
 jobCutscene.addEventListener('ended',finishFirstJobCutscene);
@@ -2482,9 +2548,41 @@ removeFunnelBtn.addEventListener('click',()=>{if(serviceState.step!=='engineOilR
 reinstallCapBtn.addEventListener('click',()=>{if(serviceState.step!=='engineOilReinstallCap')return;serviceState.step='engineOilDipstickCheck';hideOilWorkSubpanels();showOilWork('FINAL DIPSTICK CHECK','Pull and check the dipstick one more time to verify the final engine-oil level.');dipstickCheckControls.classList.add('show');setEngine3DStage('powerhead');engineOilStatus.textContent='CHECK FINAL OIL LEVEL'});
 checkDipstickBtn.addEventListener('click',()=>{if(serviceState.step!=='engineOilDipstickCheck')return;const s=serviceState.engineOil;const display=Math.min(88,Math.max(78,s.freshOil));dipstickOilLine.style.width=display+'%';checkDipstickBtn.disabled=true;checkDipstickBtn.textContent='LEVEL GOOD ✓';oilWorkFeedback.textContent='BETWEEN THE MARKS — ENGINE OIL SERVICE COMPLETE';oilWorkFeedback.style.color='#83efb1';setTimeout(finishEngineOilService,900)});
 function finishEngineOilService(){serviceState.step='engineOilComplete';engineOilWorkPanel.style.display='none';engineOilDone.style.display='block';engineOilDone.dataset.mode='spark';engineOilDone.querySelector('b').textContent='ENGINE OIL SERVICE COMPLETE ✓';engineOilDone.childNodes[2].textContent=' Old oil extracted, filter replaced, fresh oil filled, and final dipstick level checked.';engineOilPauseBtn.textContent='NEXT: SPARK PLUGS';engineOilStatus.textContent='ENGINE OIL + FILTER COMPLETE ✓';jobBadge.textContent='ANNUAL SERVICE: SPARK PLUGS NEXT';setEngine3DStage('powerhead')}
-function leaveEngineOilForSparkPlugs(){engineOilDone.style.display='none';engineOilPanel.classList.remove('active');engineOilWorkPanel.style.display='none';cancelAnimationFrame(engine3d.loop);engine3d.loop=0;serviceState.engineOil.active=false;serviceState.step='sparkPlugsReady';if(jobOutboard)jobOutboard.visible=true;if(actor)actor.visible=false;serviceOverlay.classList.add('active');serviceCard.style.display='block';setServiceText('SPARK PLUGS','Engine oil service complete. The next annual-service section is <b>spark plugs</b>.','ENGINE OIL ✓ • FILTER ✓ • FILL ✓');serviceButtons.innerHTML='';serviceButton('READY FOR SPARK PLUGS',()=>{serviceCard.style.display='none';jobBadge.textContent='NEXT: BUILD SPARK PLUG SERVICE';animStatus.textContent='Engine oil complete — spark plugs are next'});}
+function leaveEngineOilForSparkPlugs(){engineOilDone.style.display='none';engineOilPanel.classList.remove('active');engineOilWorkPanel.style.display='none';cancelAnimationFrame(engine3d.loop);engine3d.loop=0;serviceState.engineOil.active=false;startSparkPlugService();}
 engineOilPauseBtn.addEventListener('click',()=>{const mode=engineOilDone.dataset.mode;if(mode==='spark')leaveEngineOilForSparkPlugs();else startOilExtraction()});
 
+
+
+// ---------- v18.9 spark-plug minigame ----------
+const sparkPanel=document.getElementById('sparkPanel'),sparkCanvas=document.getElementById('sparkCanvas'),spark3DHost=document.getElementById('spark3DHost'),sparkAssetBadge=document.getElementById('sparkAssetBadge'),sparkInstruction=document.getElementById('sparkInstruction'),sparkProgress=document.getElementById('sparkProgress'),sparkSwipePad=document.getElementById('sparkSwipePad'),sparkSwipeArrow=document.getElementById('sparkSwipeArrow'),sparkSwipeText=document.getElementById('sparkSwipeText'),sparkFeedback=document.getElementById('sparkFeedback'),sparkFail=document.getElementById('sparkFail'),sparkFailTitle=document.getElementById('sparkFailTitle'),sparkFailText=document.getElementById('sparkFailText'),sparkRetry=document.getElementById('sparkRetry');
+const spark3d={ready:false,loading:false,renderer:null,scene:null,camera:null,models:{},loop:0};
+function sparkLoad(key,url,size,pos,rot){return new Promise(resolve=>gltfLoader.load(url,g=>{fitEngineModel(g.scene,size);const w=new THREE.Group();w.add(g.scene);w.position.set(...pos);w.rotation.set(...rot);spark3d.scene.add(w);spark3d.models[key]=w;resolve(w)},undefined,()=>resolve(null)))}
+async function initSpark3D(){if(spark3d.ready||spark3d.loading)return;spark3d.loading=true;try{const r=new THREE.WebGLRenderer({canvas:sparkCanvas,alpha:true,antialias:true,powerPreference:'high-performance'});r.setPixelRatio(Math.min(devicePixelRatio,1.35));r.setClearColor(0x000000,0);r.outputEncoding=THREE.sRGBEncoding;const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(34,1,.05,30);cam.position.set(0,.2,6.4);cam.lookAt(0,0,0);sc.add(new THREE.HemisphereLight(0xeafaff,0x18242b,2.1));const dl=new THREE.DirectionalLight(0xffffff,2.4);dl.position.set(4,5,6);sc.add(dl);spark3d.renderer=r;spark3d.scene=sc;spark3d.camera=cam;await Promise.all([sparkLoad('plug','spark_plug.glb',2.25,[-.55,-.15,0],[0,.15,.03]),sparkLoad('ratchet','spark_ratchet.glb',2.65,[.75,.2,.15],[0,-.25,-.18])]);spark3d.ready=true;spark3d.loading=false;const n=['plug','ratchet'].filter(k=>spark3d.models[k]).length;sparkAssetBadge.textContent=`3D SPARK TOOLS ${n}/2`;resizeSpark3D()}catch(e){sparkAssetBadge.textContent='3D SPARK FALLBACK';spark3d.loading=false}}
+function resizeSpark3D(){if(!spark3d.renderer)return;const w=Math.max(1,spark3DHost.clientWidth),h=Math.max(1,spark3DHost.clientHeight);spark3d.renderer.setSize(w,h,false);spark3d.camera.aspect=w/h;spark3d.camera.updateProjectionMatrix()}
+function sparkLoop(){spark3d.loop=0;if(!sparkPanel.classList.contains('active'))return;if(spark3d.renderer){resizeSpark3D();spark3d.renderer.render(spark3d.scene,spark3d.camera)}spark3d.loop=requestAnimationFrame(sparkLoop)}
+function sparkPoseForPhase(){const s=serviceState.spark,p=spark3d.models.plug,r=spark3d.models.ratchet;if(p){p.position.set(-.55,-.15,0);p.rotation.set(0,.15,.03)}if(r){r.position.set(.75,.2,.15);r.rotation.set(0,-.25,-.18)}if(s.phase==='remove'){sparkSwipeArrow.textContent='←';sparkInstruction.textContent='Swipe LEFT to loosen and remove the old plug.';sparkSwipeText.textContent=`${s.swipes} / 4 LEFT SWIPES`;sparkFeedback.textContent='Counterclockwise — keep the swipes clean.'}else if(s.phase==='install'){sparkSwipeArrow.textContent='→';sparkInstruction.textContent='Swipe RIGHT to thread the new plug in.';sparkSwipeText.textContent=`${s.swipes} / 4 RIGHT SWIPES`;sparkFeedback.textContent='Clockwise — thread it in smoothly.'}else if(s.phase==='torque'){sparkSwipeArrow.textContent='→';sparkInstruction.textContent='FINAL TIGHTEN: one controlled RIGHT swipe.';sparkSwipeText.textContent='DON’T OVER-TIGHTEN';sparkFeedback.textContent='Too hard of a final swipe can snap the plug.'}}
+function startSparkPlugService(){serviceOverlay.classList.remove('active');serviceCard.style.display='none';serviceState.active=true;serviceState.step='sparkPlugs';Object.assign(serviceState.spark,{active:true,plug:1,phase:'remove',swipes:0,wrong:0,tracking:false});sparkPanel.classList.add('active');sparkFail.classList.remove('show');jobBadge.textContent='ANNUAL SERVICE: SPARK PLUGS';initSpark3D().then(()=>{sparkPoseForPhase();if(!spark3d.loop)spark3d.loop=requestAnimationFrame(sparkLoop)});sparkProgress.textContent='PLUG 1 / 4';sparkPoseForPhase()}
+function resetCurrentSparkPlug(){const s=serviceState.spark;s.phase='remove';s.swipes=0;s.wrong=0;s.tracking=false;sparkFail.classList.remove('show');sparkPoseForPhase()}
+function failSparkPlug(reason){const s=serviceState.spark;s.tracking=false;sparkFailTitle.textContent='SPARK PLUG FAILED';sparkFailText.textContent=reason;sparkFail.classList.add('show');if(spark3d.models.plug)spark3d.models.plug.rotation.z=.65}
+sparkRetry.addEventListener('click',resetCurrentSparkPlug);
+sparkSwipePad.addEventListener('pointerdown',e=>{if(!serviceState.spark.active)return;const s=serviceState.spark;s.tracking=true;s.startX=e.clientX;sparkSwipePad.setPointerCapture?.(e.pointerId)});
+sparkSwipePad.addEventListener('pointerup',e=>{const s=serviceState.spark;if(!s.tracking||sparkFail.classList.contains('show'))return;s.tracking=false;const dx=e.clientX-s.startX,mag=Math.abs(dx);if(mag<42){sparkFeedback.textContent='BIGGER SWIPE';return}const got=dx<0?'LEFT':'RIGHT',want=s.phase==='remove'?'LEFT':'RIGHT';if(got!==want){s.wrong++;sparkFeedback.textContent=`WRONG DIRECTION ${s.wrong}/3`;sparkFeedback.style.color='#ffcf7c';if(s.wrong>=3)failSparkPlug('The plug got crossed up from repeated wrong-direction turns. Retry this plug.');return}s.wrong=0;if(s.phase==='torque'){if(mag>205){failSparkPlug('SNAP! You over-tightened the spark plug. Replace it and retry.');return}sparkFeedback.style.color='#83efb1';sparkFeedback.textContent='TORQUED CORRECTLY ✓';setTimeout(completeSparkPlug,420);return}s.swipes++;sparkFeedback.style.color='#83efb1';sparkFeedback.textContent='GOOD TURN ✓';if(spark3d.models.ratchet){const r=spark3d.models.ratchet,rz=r.rotation.z;r.rotation.z=rz+(got==='LEFT'?-0.30:.30);setTimeout(()=>r.rotation.z=rz,140)}if(spark3d.models.plug){const p=spark3d.models.plug;p.rotation.y+=(got==='LEFT'?-0.35:.35);p.position.x+=(s.phase==='remove'?-0.08:.08)}if(s.swipes>=4){if(s.phase==='remove'){s.phase='install';s.swipes=0;sparkFeedback.textContent='OLD PLUG OUT ✓ • NEW PLUG READY';setTimeout(sparkPoseForPhase,300)}else{s.phase='torque';s.swipes=0;setTimeout(sparkPoseForPhase,250)}}else sparkPoseForPhase()});
+function completeSparkPlug(){const s=serviceState.spark;if(s.plug<s.total){s.plug++;s.phase='remove';s.swipes=0;s.wrong=0;sparkProgress.textContent=`PLUG ${s.plug} / ${s.total}`;sparkPoseForPhase();return}s.active=false;serviceState.step='sparkPlugsComplete';sparkProgress.textContent='SPARK PLUGS COMPLETE ✓';sparkInstruction.textContent='All plugs replaced and tightened correctly.';sparkSwipePad.style.display='none';setTimeout(()=>{sparkPanel.classList.remove('active');sparkSwipePad.style.display='flex';cancelAnimationFrame(spark3d.loop);spark3d.loop=0;serviceOverlay.classList.add('active');serviceCard.style.display='block';setServiceText('SPARK PLUGS COMPLETE ✓','The spark plugs are finished. Ready for the next annual-service section.','ENGINE OIL ✓ • SPARK PLUGS ✓');serviceButtons.innerHTML='';serviceButton('CONTINUE',()=>{serviceCard.style.display='none';jobBadge.textContent='ANNUAL SERVICE: NEXT SECTION';animStatus.textContent='Spark plug service complete'});},850)}
+addEventListener('resize',resizeSpark3D);
+
+// ---------- v18.9 two-player P2P (Host Rick / Join Gage) ----------
+const multiBtn=document.getElementById('multiBtn'),multiOverlay=document.getElementById('multiOverlay'),multiClose=document.getElementById('multiClose'),hostGameBtn=document.getElementById('hostGameBtn'),joinGameBtn=document.getElementById('joinGameBtn'),roomCodeInput=document.getElementById('roomCodeInput'),multiStatus=document.getElementById('multiStatus'),disconnectGameBtn=document.getElementById('disconnectGameBtn');
+function roomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let out='';for(let i=0;i<5;i++)out+=chars[Math.floor(Math.random()*chars.length)];return out}
+function setMultiStatus(t){multiStatus.textContent=t}
+function closeMultiplayer(){multiOverlay.classList.remove('show')}
+multiBtn.addEventListener('click',()=>multiOverlay.classList.add('show'));multiClose.addEventListener('click',closeMultiplayer);multiOverlay.addEventListener('pointerdown',e=>{if(e.target===multiOverlay)closeMultiplayer()});
+function cleanupMultiplayer(msg='Offline single-player • Gage uses NPC AI.'){try{multiplayer.conn?.close()}catch(e){}try{multiplayer.peer?.destroy()}catch(e){}multiplayer.peer=null;multiplayer.conn=null;multiplayer.connected=false;multiplayer.role='offline';multiplayer.room='';document.body.classList.remove('gage-player');multiBtn.textContent='2 PLAYER';multiBtn.classList.remove('connected');disconnectGameBtn.style.display='none';setMultiStatus(msg);gageState.target=null;gageStartIdle?.(clock.elapsedTime)}
+function sendWelcome(){if(!multiplayer.conn?.open||!gageNPC)return;multiplayer.conn.send({t:'welcome',x:gageNPC.position.x,y:gageNPC.position.y,z:gageNPC.position.z,yaw:gageNPC.rotation.y})}
+function setupConnection(conn){multiplayer.conn=conn;conn.on('open',()=>{multiplayer.connected=true;multiBtn.classList.add('connected');disconnectGameBtn.style.display='inline-block';if(multiplayer.role==='host'){multiBtn.textContent=`RICK • ${multiplayer.room}`;setMultiStatus(`GAGE CONNECTED ✓ • Room ${multiplayer.room}`);sendWelcome()}else{multiBtn.textContent='GAGE • CONNECTED';setMultiStatus(`CONNECTED AS GAGE ✓ • Room ${multiplayer.room}`);document.body.classList.add('gage-player')}setTimeout(closeMultiplayer,650)});conn.on('data',d=>{if(!d||typeof d!=='object')return;if(d.t==='welcome'&&isGuestPlayer()){controller.pos.set(d.x,d.y,d.z);controller.yaw=d.yaw||0;controller.groundY=d.y;return}if(d.t==='pos'){multiplayer.remote.x=d.x;multiplayer.remote.y=d.y;multiplayer.remote.z=d.z;multiplayer.remote.yaw=d.yaw;multiplayer.remote.moving=!!d.moving;multiplayer.remote.running=!!d.running;if(d.chas)multiplayer.remoteChas=d.chas}});conn.on('close',()=>cleanupMultiplayer('Other player disconnected • back to single-player.'));conn.on('error',()=>cleanupMultiplayer('Connection lost • back to single-player.'))}
+hostGameBtn.addEventListener('click',()=>{if(typeof Peer==='undefined'){setMultiStatus('Multiplayer library could not load. Make sure the game is online.');return}cleanupMultiplayer('Starting room…');const code=roomCode();multiplayer.role='host';multiplayer.room=code;setMultiStatus(`ROOM ${code} • Waiting for Gage…`);roomCodeInput.value=code;const peer=new Peer(`dockyard-${code.toLowerCase()}`);multiplayer.peer=peer;peer.on('open',()=>setMultiStatus(`ROOM ${code} • Waiting for Gage…`));peer.on('connection',conn=>{if(multiplayer.conn?.open){conn.close();return}setupConnection(conn)});peer.on('error',e=>cleanupMultiplayer(`Host error: ${e.type||'connection failed'}`))});
+joinGameBtn.addEventListener('click',()=>{if(typeof Peer==='undefined'){setMultiStatus('Multiplayer library could not load. Make sure the game is online.');return}const code=roomCodeInput.value.trim().toUpperCase();if(code.length<4){setMultiStatus('Enter Rick’s room code.');return}cleanupMultiplayer('Connecting…');multiplayer.role='guest';multiplayer.room=code;const peer=new Peer();multiplayer.peer=peer;peer.on('open',()=>{const conn=peer.connect(`dockyard-${code.toLowerCase()}`,{reliable:true});setupConnection(conn)});peer.on('error',e=>cleanupMultiplayer(`Join error: ${e.type||'connection failed'}`))});
+disconnectGameBtn.addEventListener('click',()=>cleanupMultiplayer());
+function multiplayerTick(time){if(!multiplayer.connected||!multiplayer.conn?.open)return;if(time-multiplayer.lastSend<.065)return;multiplayer.lastSend=time;const msg={t:'pos',x:controller.pos.x,y:controller.pos.y,z:controller.pos.z,yaw:controller.yaw,moving:multiplayer.localMoving,running:multiplayer.localRunning};if(isHostPlayer()&&chasNPC)msg.chas={x:chasNPC.position.x,y:chasNPC.position.y,z:chasNPC.position.z,yaw:chasNPC.rotation.y,mode:chasState.mode};try{multiplayer.conn.send(msg)}catch(e){}}
 
 function showJobStartPopup(){
   if(serviceState.active)return;
@@ -2506,7 +2604,7 @@ function finishArrivalCutscene(){
   arrivalState.cutscenePlaying=false;
   arrivalCutsceneVideo.pause();
   arrivalCutsceneOverlay.style.display='none';
-  boatDaddyMusic.volume=.58;
+  setMusicVolume(.58);
   revealOutboardAndBeginJob();
 }
 async function playArrivalCutscene(){
@@ -2515,7 +2613,7 @@ async function playArrivalCutscene(){
   arrivalState.cutscenePlaying=true;
   document.exitPointerLock?.();
   arrivalCutsceneOverlay.style.display='flex';
-  boatDaddyMusic.volume=.08;
+  setMusicVolume(.08);
   arrivalCutsceneVideo.currentTime=0;
   try{await arrivalCutsceneVideo.play();}catch(e){finishArrivalCutscene();}
 }
@@ -2549,6 +2647,7 @@ function resolveCustomerCall(accepted){
 }
 
 function special(name){
+  if(isGuestPlayer())return;
   if(controller.special||!actions[name])return;
   alternateIdleActive=false;
   idleStillTime=0;
@@ -2767,7 +2866,7 @@ addEventListener('keydown',e=>{
   if(e.code==='Space'){e.preventDefault();triggerJump()}
   if((e.code==='ShiftLeft'||e.code==='ShiftRight') && actor && controller.onGround && !controller.special){
     const mv=movementVector();
-    if(mv.lengthSq()>.004) play('run',{fade:.08});
+    if(!isGuestPlayer()&&mv.lengthSq()>.004) play('run',{fade:.08});
   }
   if(e.code==='Digit1'||e.code==='KeyF')special('backflip');
   if(e.code==='Digit2'||e.code==='KeyB')special('breakdance');
@@ -2778,7 +2877,7 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>{
   keys[e.code]=false;
   if((e.code==='ShiftLeft'||e.code==='ShiftRight') && actor && controller.onGround && !controller.special){
-    const mv=movementVector();if(mv.lengthSq()>.004)play('walk',{fade:.06});
+    const mv=movementVector();if(!isGuestPlayer()&&mv.lengthSq()>.004)play('walk',{fade:.06});
   }
 });
 function triggerJump(){
@@ -2789,7 +2888,7 @@ function triggerJump(){
   if(!callState.triggered){callState.jumped=true;updateTrainingHUD();}
   controller.vertical=5.2;
   const a=actions.jump;
-  if(a){
+  if(a&&!isGuestPlayer()){
     if(currentAction)currentAction.fadeOut(.08);
     a.reset();
     a.enabled=true;
@@ -2901,7 +3000,7 @@ for(const b of document.querySelectorAll('.act')){
       b.textContent='RUNNING';
       speedBadge.textContent='RUN MODE';
       const mv=movementVector();
-      if(controller.onGround&&!controller.special&&mv.lengthSq()>.004)play('run',{fade:.03});
+      if(!isGuestPlayer()&&controller.onGround&&!controller.special&&mv.lengthSq()>.004)play('run',{fade:.03});
     };
     const stopRun=(e)=>{
       if(e)e.preventDefault();
@@ -2909,7 +3008,7 @@ for(const b of document.querySelectorAll('.act')){
       b.textContent='HOLD RUN';
       speedBadge.textContent='WALK MODE';
       const mv=movementVector();
-      if(controller.onGround&&!controller.special&&mv.lengthSq()>.004)play('walk',{fade:.03});
+      if(!isGuestPlayer()&&controller.onGround&&!controller.special&&mv.lengthSq()>.004)play('walk',{fade:.03});
     };
     b.addEventListener('pointerdown',startRun);
     b.addEventListener('pointerup',stopRun);
@@ -3001,7 +3100,8 @@ function updateManateeYell(time){
 
 // v18.8 — solid NPC collision. Rick can no longer walk through Gage or Chas.
 function collidesWithNPC(x,z,clearance=1.05){
-  const npcs=[gageNPC,chasNPC];
+  const npcs=[chasNPC];
+  if(isGuestPlayer())npcs.push(actor);else npcs.push(gageNPC);
   for(const npc of npcs){
     if(!npc||npc.visible===false)continue;
     const dx=x-npc.position.x,dz=z-npc.position.z;
@@ -3036,7 +3136,7 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
  reflectionMat.opacity=.075+.035*(.5+.5*Math.sin(time*.42));
  updateRain(dt,time);
  if(actor&&mixer){
-   const mv=(callState.active||firstJobState.cutscenePlaying||arrivalState.cutscenePlaying||serviceState.active)?new THREE.Vector2(0,0):movementVector();const moving=mv.lengthSq()>.004;const running=(keys.ShiftLeft||keys.ShiftRight||controller.mobileRunHeld||controller.runToggle);
+   const mv=(callState.active||firstJobState.cutscenePlaying||arrivalState.cutscenePlaying||serviceState.active)?new THREE.Vector2(0,0):movementVector();const moving=mv.lengthSq()>.004;const running=(keys.ShiftLeft||keys.ShiftRight||controller.mobileRunHeld||controller.runToggle);multiplayer.localMoving=moving;multiplayer.localRunning=running;
    const lookStick=curvedStick(input.lookX,input.lookY,.10,1.85);
    const lookActive=lookStick.lengthSq()>.0005;
    if(lookActive){
@@ -3084,14 +3184,13 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
            }
            if(!callState.triggered)updateTrainingHUD();
          }
-         play(running?'run':'walk',{fade:.04});
+         if(!isGuestPlayer())play(running?'run':'walk',{fade:.04});
        }
      } else if(controller.onGround && !callState.active && !firstJobState.cutscenePlaying && !arrivalState.cutscenePlaying && !serviceState.active) {
-       idleStillTime+=dt;
-       if(!alternateIdleActive && idleStillTime>=ALT_IDLE_DELAY){
-         startAlternateIdle();
-       } else if(!alternateIdleActive) {
-         play('idle',{fade:.12});
+       if(isGuestPlayer()){idleStillTime=0;if(alternateIdleActive)cancelAlternateIdle();}
+       else{idleStillTime+=dt;
+         if(!alternateIdleActive && idleStillTime>=ALT_IDLE_DELAY){startAlternateIdle();}
+         else if(!alternateIdleActive){play('idle',{fade:.12});}
        }
      }
    }
@@ -3107,16 +3206,21 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
        controller.onGround=true;
        controller.jumping=false;
        if(!controller.special){
-         if(moving) play(running?'run':'walk',{fade:.08});
-         else play('idle',{fade:.10});
+         if(!isGuestPlayer()){if(moving) play(running?'run':'walk',{fade:.08});
+         else play('idle',{fade:.10});}
        }
      }
    }
-   if(!callState.triggered && trainingReady() && controller.onGround && !controller.special && !serviceState.active){
+   if(!isGuestPlayer() && !callState.triggered && trainingReady() && controller.onGround && !controller.special && !serviceState.active){
      showCustomerCall();
    }
-   actor.position.copy(controller.pos);actor.rotation.y=controller.yaw;
+   if(isGuestPlayer()){
+     const r=multiplayer.remote;
+     actor.position.lerp(new THREE.Vector3(r.x,r.y,r.z),Math.min(1,dt*12));actor.rotation.y=lerpAngle(actor.rotation.y,r.yaw,Math.min(1,dt*12));
+     play(r.moving?(r.running?'run':'walk'):'idle',{fade:.08});
+   }else{actor.position.copy(controller.pos);actor.rotation.y=controller.yaw;}
    mixer.update(dt);
+   multiplayerTick(time);
 
    updateGage(dt,time);
    updateChas(dt,time);
@@ -3157,7 +3261,7 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
    }
 
 
-   if(firstJobState.waypointActive && jobBoatTarget && !arrivalState.triggered && !firstJobState.cutscenePlaying && !arrivalState.cutscenePlaying){
+   if(!isGuestPlayer() && firstJobState.waypointActive && jobBoatTarget && !arrivalState.triggered && !firstJobState.cutscenePlaying && !arrivalState.cutscenePlaying){
      const distToService=Math.hypot(controller.pos.x-firstJobServicePoint.x,controller.pos.z-firstJobServicePoint.z);
      if(distToService<2.25)playArrivalCutscene();
    }

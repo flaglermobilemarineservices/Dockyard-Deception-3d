@@ -1,0 +1,32 @@
+Dockyard Deception v18.9 — 2 Player + Spark Plugs + 3-Song Playlist
+
+Install ON TOP OF v18.8.
+Upload the contents of all three ZIP packs to the GitHub repo root, replacing index.html when asked.
+
+PACK 1 — CODE + MUSIC
+- index.html
+- boat_daddy_rides.mp3
+- boat_daddy_rick_song3.mp3
+Playlist order: existing first song -> Boat Daddy Rides -> new Boat Daddy Rick -> loops back to first.
+
+PACK 2 — SPARK PLUG
+- spark_plug.glb
+
+PACK 3 — RATCHET
+- spark_ratchet.glb
+
+MULTIPLAYER
+- Exactly 2 players
+- Host plays Rick
+- Joiner plays Gage
+- Tap 2 PLAYER, host gets a room code, Gage joins with that code
+- Rick and Gage have solid collision and cannot run through each other
+- Chas remains host-controlled and is synchronized to Gage's device
+- Multiplayer uses an online peer-to-peer connection and needs internet access
+
+SPARK PLUG GAME
+- LEFT swipes remove each plug
+- RIGHT swipes install
+- Final controlled RIGHT swipe tightens it
+- 3 wrong-direction swipes fails the current plug
+- Over-hard final tightening snaps the plug and fails the current plug
