@@ -1,16 +1,15 @@
-Dockyard Deception v18.11 update
+Dockyard Deception v18.14 — Pan + Music + Water/Sky
 
-Upload these files to the SAME GitHub repo root as v18.10:
-- index.html (replace the old one)
-- payday_cutscene.mp4 (new file)
+Upload these four files to the repo root and replace matching files:
+- index.html
+- boat_daddy_rick.mp3
+- boat_daddy_rides.mp3
+- boat_daddy_rick_song3.mp3
 
-Do not remove your existing GLBs, songs, character files, or other cutscenes.
-
-v18.11 changes:
-- gear-oil drain pan: black, wider/larger, open side facing up, positioned under the oil stream
-- fullscreen icon is tiny and disappears while fullscreen is active
-- playlist advances only after each track reaches its real end
-- manatee yell uses a much deeper/slower old-man voice profile and prefers male English system voices
-- new payday cutscene plays after plug #6
-- cash updates after the payday scene, then explains tools/health/energy/outfits/helpers
-- declining the first job now means no pay/progress; another customer calls 8 seconds later so the tutorial cannot soft-lock
+Fixes:
+- smaller gear-oil pan, centered lower under the oil stream
+- catch zone aligned to the visible center of the pan
+- music files included again; mobile audio retries until a real gesture unlocks playback
+- songs only advance after their actual ended event at the real end of the track
+- brighter late-afternoon Florida sky with soft procedural clouds
+- cleaner blue-green marina water with moving highlights and gentler ripples

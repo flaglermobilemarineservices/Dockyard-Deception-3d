@@ -497,6 +497,12 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 /* The tutorial HUD stays useful without advertising the hidden training counters. */
 #hud .small{display:none!important}
 
+
+/* v18.14 — pan alignment + late-afternoon water/sky polish */
+#gearOilPan3DHost{inset:0!important;left:0!important;right:0!important;top:0!important;bottom:0!important;transform:none!important;overflow:hidden!important}
+#gearOilPanCanvas{inset:0!important;width:100%!important;height:100%!important}
+#oilStream{height:30%!important}
+
 </style>
 </head>
 <body>
@@ -943,29 +949,64 @@ const boatDaddyRides=document.getElementById('boatDaddyRides');
 const boatDaddySong3=document.getElementById('boatDaddySong3');
 const musicCtl=document.getElementById('musicCtl');
 const musicPlaylist=[boatDaddyMusic,boatDaddyRides,boatDaddySong3];
-let musicIndex=0,musicWanted=true,musicStarted=false,musicVolume=.58;
+let musicIndex=0,musicWanted=true,musicStarted=false,musicVolume=.58,musicUnlocking=false;
 function currentMusic(){return musicPlaylist[musicIndex]}
 function setMusicVolume(v){musicVolume=v;musicPlaylist.forEach(a=>a.volume=v)}
-function stopOtherMusic(keep){musicPlaylist.forEach(a=>{if(a!==keep)a.pause()})}
-async function playMusicIndex(i,reset=false){musicIndex=(i+musicPlaylist.length)%musicPlaylist.length;const a=currentMusic();stopOtherMusic(a);if(reset)a.currentTime=0;setMusicVolume(musicVolume);if(musicWanted){try{await a.play();musicStarted=true}catch(e){}}}
+function stopOtherMusic(keep){musicPlaylist.forEach(a=>{if(a!==keep){a.pause();}})}
+async function playMusicIndex(i,reset=false){
+  musicIndex=(i+musicPlaylist.length)%musicPlaylist.length;
+  const a=currentMusic();stopOtherMusic(a);
+  if(reset){try{a.currentTime=0}catch(e){}}
+  setMusicVolume(musicVolume);
+  if(!musicWanted)return false;
+  try{
+    await a.play();
+    musicStarted=true;
+    musicCtl.textContent='MUSIC: ON';
+    return true;
+  }catch(e){
+    musicStarted=false;
+    musicCtl.textContent='TAP MUSIC';
+    return false;
+  }
+}
 musicPlaylist.forEach((a,i)=>{
-  a.loop=false;a.preload='auto';
+  a.loop=false;a.preload='auto';a.playsInline=true;
   a.addEventListener('ended',()=>{
     if(i!==musicIndex||!musicWanted)return;
     const d=Number(a.duration),t=Number(a.currentTime);
-    // Only move to the next track after the browser has actually reached the end.
-    // If a mobile browser fires an early/spurious ended event, resume this song instead.
-    if(Number.isFinite(d)&&d>1&&Number.isFinite(t)&&t<d-.45){try{a.play()}catch(e){};return}
+    // Never advance on a bogus mobile "ended" event before the real end of the file.
+    if(Number.isFinite(d)&&d>1&&Number.isFinite(t)&&t<d-.20){
+      try{a.currentTime=Math.max(0,t-.02);a.play()}catch(e){}
+      return;
+    }
     playMusicIndex((i+1)%musicPlaylist.length,true);
+  });
+  a.addEventListener('error',()=>{
+    if(i===musicIndex){musicStarted=false;musicCtl.textContent='TAP MUSIC';}
   });
 });
 setMusicVolume(.58);
-async function startMusicFromGesture(){if(!musicWanted||musicStarted)return;await playMusicIndex(musicIndex,false);musicCtl.textContent='MUSIC: ON'}
-musicCtl.addEventListener('click',async e=>{e.stopPropagation();musicWanted=!musicWanted;if(musicWanted){musicCtl.textContent='MUSIC: ON';await playMusicIndex(musicIndex,false)}else{musicPlaylist.forEach(a=>a.pause());musicCtl.textContent='MUSIC: OFF'}});
-
-// Browsers block autoplay until the first real click/tap/key press.
-addEventListener('pointerdown',startMusicFromGesture,{once:true});
-addEventListener('keydown',startMusicFromGesture,{once:true});
+async function startMusicFromGesture(){
+  if(!musicWanted||musicStarted||musicUnlocking)return;
+  musicUnlocking=true;
+  // Mobile browsers can reject the first attempt while the page is still settling.
+  // Keep the gesture listeners alive until a track actually starts.
+  await playMusicIndex(musicIndex,false);
+  musicUnlocking=false;
+}
+function musicGestureRetry(){if(musicWanted&&!musicStarted)startMusicFromGesture()}
+musicCtl.addEventListener('click',async e=>{
+  e.stopPropagation();
+  if(!musicStarted&&musicWanted){await startMusicFromGesture();return;}
+  musicWanted=!musicWanted;
+  if(musicWanted){musicCtl.textContent='MUSIC: ON';await playMusicIndex(musicIndex,false)}
+  else{musicPlaylist.forEach(a=>a.pause());musicStarted=false;musicCtl.textContent='MUSIC: OFF'}
+});
+// Keep retrying on genuine user gestures until audio is actually unlocked.
+addEventListener('pointerdown',musicGestureRetry,{passive:true});
+addEventListener('touchstart',musicGestureRetry,{passive:true});
+addEventListener('keydown',musicGestureRetry);
 
 const mouseHint=document.getElementById('mouseHint');
 const crosshair=document.getElementById('crosshair');
@@ -987,7 +1028,7 @@ const OUTBOARD_B64=window.OUTBOARD_B64;
 
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;stage.appendChild(renderer.domElement);
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x153147);scene.fog=new THREE.FogExp2(0x6d8290,.0085);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x6aa9cc);scene.fog=new THREE.FogExp2(0x88afc2,.0068);
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.05,220);
 scene.add(camera);
 const clock=new THREE.Clock();
@@ -998,10 +1039,10 @@ const skyMat=new THREE.ShaderMaterial({
   side:THREE.BackSide,
   depthWrite:false,
   uniforms:{
-    topColor:{value:new THREE.Color(0x263f69)},
-    midColor:{value:new THREE.Color(0xd67d86)},
-    horizonColor:{value:new THREE.Color(0xffad72)},
-    lowColor:{value:new THREE.Color(0x6b8390)}
+    topColor:{value:new THREE.Color(0x4f93c5)},
+    midColor:{value:new THREE.Color(0x91c4df)},
+    horizonColor:{value:new THREE.Color(0xf4c99f)},
+    lowColor:{value:new THREE.Color(0x7597a8)}
   },
   vertexShader:`varying vec3 vWorld;void main(){vec4 w=modelMatrix*vec4(position,1.0);vWorld=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
   fragmentShader:`varying vec3 vWorld;uniform vec3 topColor;uniform vec3 midColor;uniform vec3 horizonColor;uniform vec3 lowColor;
@@ -1017,18 +1058,36 @@ const skyMat=new THREE.ShaderMaterial({
 const skyDome=new THREE.Mesh(skyGeo,skyMat);scene.add(skyDome);
 
 // Lighting tuned for warm sunset.
-scene.add(new THREE.HemisphereLight(0xffd8bf,0x18313a,1.55));
-const sun=new THREE.DirectionalLight(0xffb36b,4.25);sun.position.set(-24,16,-28);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-36;sun.shadow.camera.right=36;sun.shadow.camera.top=36;sun.shadow.camera.bottom=-36;scene.add(sun);
-scene.add(new THREE.AmbientLight(0x6c86a8,.42));
+scene.add(new THREE.HemisphereLight(0xd9efff,0x24424a,1.72));
+const sun=new THREE.DirectionalLight(0xffd19a,3.65);sun.position.set(-24,20,-28);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-36;sun.shadow.camera.right=36;sun.shadow.camera.top=36;sun.shadow.camera.bottom=-36;scene.add(sun);
+scene.add(new THREE.AmbientLight(0x7ca5bd,.48));
 
 // Water: darker blue-green, glossy sunset reflections, broad gentle marina chop.
 const waterGeo=new THREE.PlaneGeometry(170,170,56,56);waterGeo.rotateX(-Math.PI/2);
 const waterMat=new THREE.MeshPhysicalMaterial({
-  color:0x176a7d,roughness:.18,metalness:.12,clearcoat:.72,clearcoatRoughness:.16,
-  transparent:true,opacity:.95,side:THREE.DoubleSide
+  color:0x187f91,roughness:.24,metalness:.04,clearcoat:.92,clearcoatRoughness:.12,
+  transparent:true,opacity:.96,side:THREE.DoubleSide
 });
 const water=new THREE.Mesh(waterGeo,waterMat);water.position.y=-.42;water.receiveShadow=true;scene.add(water);
 const waterBase=Float32Array.from(waterGeo.attributes.position.array);
+let waterNormalTick=0;
+// Cheap animated surface sheen: gives the marina water moving highlights without loading a texture.
+const waterSheenUniforms={uTime:{value:0}};
+const waterSheenMat=new THREE.ShaderMaterial({
+  transparent:true,depthWrite:false,side:THREE.DoubleSide,
+  uniforms:waterSheenUniforms,
+  vertexShader:`varying vec3 vWorld;void main(){vec4 w=modelMatrix*vec4(position,1.0);vWorld=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
+  fragmentShader:`uniform float uTime;varying vec3 vWorld;void main(){
+    float w1=.5+.5*sin(vWorld.x*.42+vWorld.z*.18+uTime*1.05);
+    float w2=.5+.5*sin(vWorld.x*.17-vWorld.z*.36-uTime*.72+1.7);
+    float crest=smoothstep(.76,.99,w1*.58+w2*.42);
+    float sparkle=smoothstep(.88,1.0,.5+.5*sin((vWorld.x+vWorld.z)*1.35+uTime*2.2));
+    float a=.018+crest*.075+sparkle*.026;
+    gl_FragColor=vec4(.72,.93,1.0,a);
+  }`
+});
+const waterSheen=new THREE.Mesh(new THREE.PlaneGeometry(170,170),waterSheenMat);
+waterSheen.rotation.x=-Math.PI/2;waterSheen.position.y=-.405;waterSheen.renderOrder=2;scene.add(waterSheen);
 
 // Long orange sunset reflection lane.
 const reflectionMat=new THREE.MeshBasicMaterial({color:0xffa45e,transparent:true,opacity:.10,depthWrite:false,blending:THREE.AdditiveBlending});
@@ -1330,6 +1389,25 @@ const sunGlow=new THREE.Mesh(new THREE.SphereGeometry(3.6,24,16),new THREE.MeshB
 sunGlow.position.set(-28,9,-62);scene.add(sunGlow);
 const sunDisc=new THREE.Mesh(new THREE.SphereGeometry(1.7,24,16),new THREE.MeshBasicMaterial({color:0xfff0bf}));
 sunDisc.position.set(-28,9,-61.5);scene.add(sunDisc);
+
+// Soft procedural clouds — no image files, very light on mobile.
+function makeCloudTexture(){
+  const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');
+  x.clearRect(0,0,256,128);
+  const puffs=[[54,72,46],[90,57,52],[132,66,58],[174,58,46],[205,76,37],[113,82,68]];
+  for(const [cx,cy,r] of puffs){
+    const g=x.createRadialGradient(cx,cy,r*.12,cx,cy,r);
+    g.addColorStop(0,'rgba(255,255,255,.72)');g.addColorStop(.55,'rgba(250,252,255,.42)');g.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=g;x.beginPath();x.arc(cx,cy,r,0,Math.PI*2);x.fill();
+  }
+  const t=new THREE.CanvasTexture(c);t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.generateMipmaps=false;return t;
+}
+const cloudTexture=makeCloudTexture();
+const cloudGroup=new THREE.Group();scene.add(cloudGroup);
+[
+  [-58,24,-82,28,10,.40],[-24,31,-96,34,12,.34],[18,27,-92,29,10,.38],[57,22,-72,25,9,.33],
+  [-82,18,-25,30,10,.30],[82,25,12,27,9,.28],[-48,29,72,33,11,.31],[42,23,83,30,10,.29]
+].forEach(([x,y,z,w,h,o])=>{const m=new THREE.SpriteMaterial({map:cloudTexture,transparent:true,opacity:o,depthWrite:false,color:0xffffff});const sp=new THREE.Sprite(m);sp.position.set(x,y,z);sp.scale.set(w,h,1);cloudGroup.add(sp)});
 
 // Irregular Florida shoreline on the east side: low profile, not a giant box.
 const shoreMat=new THREE.MeshStandardMaterial({color:0x557a49,roughness:.98,metalness:0});
@@ -2003,9 +2081,9 @@ function initGearOilPan3D(){
     scene3.add(new THREE.HemisphereLight(0xf3fbff,0x172127,2.4));const key=new THREE.DirectionalLight(0xffffff,2.0);key.position.set(3,6,5);scene3.add(key);
     gearOilPan3d.renderer=renderer;gearOilPan3d.scene=scene3;gearOilPan3d.camera=cam;
     gltfLoader.load('gear_oil_pan.glb',g=>{
-      fitGearPanModel(g.scene,1.90);g.scene.scale.x*=1.55;g.scene.scale.y*=.25;g.scene.scale.z*=.15;
+      fitGearPanModel(g.scene,1.42);g.scene.scale.x*=1.22;g.scene.scale.y*=.34;g.scene.scale.z*=.62;
       g.scene.traverse(o=>{if(o.isMesh&&o.material){const mats=Array.isArray(o.material)?o.material:[o.material];o.material=mats.map(m=>{const c=m.clone();if(c.color)c.color.set(0x090b0d);if('metalness' in c)c.metalness=Math.max(.18,c.metalness||0);if('roughness' in c)c.roughness=.72;return c});if(o.material.length===1)o.material=o.material[0]}});
-      const wrap=new THREE.Group();wrap.add(g.scene);/* broad X/Z opening faces +Y: flat/open side UP */wrap.rotation.set(0,.08,0);wrap.position.set(0,-.18,.18);scene3.add(wrap);
+      const wrap=new THREE.Group();wrap.add(g.scene);/* broad X/Z opening faces +Y: flat/open side UP */wrap.rotation.set(0,.04,0);wrap.position.set(0,-1.02,.12);scene3.add(wrap);
       gearOilPan3d.model=wrap;gearOilPan3d.ready=true;gearOilPan3d.loading=false;resizeGearOilPan3D();
     },undefined,()=>{gearOilPan3d.loading=false;});
   }catch(e){gearOilPan3d.loading=false;}
@@ -2022,9 +2100,10 @@ function resizeGearOilPan3D(){
 function updateGearOilPan3D(){
   if(!gearOilPan3d.model)return;
   const a=Math.max(.65,gearOilPan3DHost.clientWidth/Math.max(1,gearOilPan3DHost.clientHeight));
-  gearOilPan3d.model.position.x=(serviceState.panX-.5)*(4.1*a);
-  // Its host is already anchored under the falling stream. Keep the bowl centered/open-side-up here.
-  gearOilPan3d.model.position.y=-.18;
+  // Map the model center 1:1 to the panX screen coordinate so the visible pan and catch zone agree.
+  gearOilPan3d.model.position.x=(serviceState.panX-.5)*(5.10*a);
+  // Keep the opening down near the bottom of the falling stream.
+  gearOilPan3d.model.position.y=-1.02;
 }
 function startGearOilPan3DLoop(){
   if(gearOilPan3d.loop)return;const tick=()=>{gearOilPan3d.loop=0;if(serviceState.step!=='catch'||oilCatchGame.style.display==='none')return;resizeGearOilPan3D();updateGearOilPan3D();if(gearOilPan3d.renderer&&gearOilPan3d.scene&&gearOilPan3d.camera)gearOilPan3d.renderer.render(gearOilPan3d.scene,gearOilPan3d.camera);gearOilPan3d.loop=requestAnimationFrame(tick)};gearOilPan3d.loop=requestAnimationFrame(tick);
@@ -2098,7 +2177,8 @@ function runOilCatch(now){
     serviceState.wind<-.65?'GUST: ←←':
     serviceState.wind<-.18?'WIND: ←':'WIND: CALM';
 
-  const caught=Math.abs(serviceState.panX-streamX)<.145;
+  // Catch zone is centered on the VISIBLE pan, not one edge/corner of it.
+  const caught=Math.abs(serviceState.panX-streamX)<.115;
   if(caught)serviceState.catchProgress+=dt;
   else serviceState.spill+=dt*(5.5+absWind*1.8);
 
@@ -3402,12 +3482,14 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
  for(let i=0;i<arr.length;i+=3){
    const x=waterBase[i],z=waterBase[i+2];
    arr[i+1]=waterBase[i+1]
-     +Math.sin(x*.33+time*.95)*.052
-     +Math.cos(z*.27-time*.72)*.041
-     +Math.sin((x+z)*.18+time*1.36)*.025;
+     +Math.sin(x*.30+time*.78)*.038
+     +Math.cos(z*.24-time*.61)*.029
+     +Math.sin((x+z)*.16+time*1.08)*.017;
  }
- waterGeo.attributes.position.needsUpdate=true;waterGeo.computeVertexNormals();
- reflectionMat.opacity=.075+.035*(.5+.5*Math.sin(time*.42));
+ waterGeo.attributes.position.needsUpdate=true;
+ if((waterNormalTick++&3)===0)waterGeo.computeVertexNormals();
+ waterSheenUniforms.uTime.value=time;
+ reflectionMat.opacity=.065+.030*(.5+.5*Math.sin(time*.42));
  updateRain(dt,time);
  if(actor&&mixer){
    const mv=(callState.active||firstJobState.cutscenePlaying||arrivalState.cutscenePlaying||serviceState.active)?new THREE.Vector2(0,0):movementVector();const moving=mv.lengthSq()>.004;const running=(keys.ShiftLeft||keys.ShiftRight||controller.mobileRunHeld||controller.runToggle);multiplayer.localMoving=moving;multiplayer.localRunning=running;
@@ -3562,5 +3644,5 @@ animate();
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.75))});
 </script>
-<!-- Dockyard Deception v18.13: stability pass — lower anchored pan, payday control restore, manatee bubble tracking -->
+<!-- Dockyard Deception v18.14: music recovery, correctly aligned gear-oil pan, late-afternoon water + sky pass -->
 </body></html>
