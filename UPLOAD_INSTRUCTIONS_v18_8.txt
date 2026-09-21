@@ -1,0 +1,29 @@
+Dockyard Deception v18.8 — 3D Oil Assets + Solid NPC Collision
+
+This update is split into 3 smaller ZIPs so the files are easier to upload from a phone.
+Upload the CONTENTS of all three ZIPs into the same GitHub repo root, replacing index.html and any matching oil asset files.
+
+PACK 1 — CODE + EXTRACTOR + GEAR-OIL PAN
+- index.html
+- oil_extractor.glb   (manual engine-oil extractor)
+- gear_oil_pan.glb   (3D drain pan used in the gear-oil catch game)
+
+PACK 2 — FILTER TOOLS
+- oil_filter.glb
+- oil_filter_wrench.glb
+
+PACK 3 — FILL TOOLS
+- oil_jug.glb
+- oil_funnel.glb
+
+Changes:
+- Rick can no longer walk through Gage or Chas; movement slides along them instead.
+- Gage and Chas also avoid walking through each other.
+- Gear-oil catch game now shows the actual 3D oil pan asset and moves it with your finger.
+- Engine-oil extraction now uses the actual manual extractor model.
+- Filter stage visibly shows the 3D filter and filter wrench.
+- Filter prep/fill visibly shows the 3D oil jug and orange funnel.
+- Engine oil service shows a 3D-asset load count so missing files are obvious.
+- The old top training/steps HUD remains removed.
+
+This update assumes v18.7 is already in the repo, including chas_walk.glb and chas_idle.glb.

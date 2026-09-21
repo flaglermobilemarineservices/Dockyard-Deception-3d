@@ -127,11 +127,14 @@
   background:linear-gradient(#24170e,#3a2818,#18120d);
   opacity:.92
 }
+#gearOilPan3DHost{position:absolute;inset:0;z-index:2;pointer-events:none}
+#gearOilPanCanvas{position:absolute;inset:0;width:100%!important;height:100%!important;pointer-events:none}
+#oilDrainPoint,#oilStream{z-index:3}
+#windReadout,#catchReadout,#spillMeter{z-index:5}
 #oilPan{
-  position:absolute;bottom:12px;left:50%;width:128px;height:34px;
-  transform:translateX(-50%);border:4px solid #9ea5aa;border-top-width:7px;
-  border-radius:12px 12px 22px 22px;background:rgba(36,39,42,.92);
-  box-shadow:inset 0 7px 0 rgba(0,0,0,.36)
+  position:absolute;bottom:8px;left:50%;width:160px;height:54px;
+  transform:translateX(-50%);border:0;background:transparent;opacity:0;z-index:4;
+  pointer-events:none
 }
 #windReadout{
   position:absolute;left:12px;top:10px;padding:7px 10px;border-radius:10px;
@@ -424,7 +427,7 @@
 @media(max-height:620px){#engineOilWorkPanel{bottom:40px;padding:9px 12px}#filterGesturePad{height:68px}.oilActionBtn{min-height:42px;margin-top:6px}#oilWorkText{font-size:12px}}
 
 
-/* v18.7: remove the old top training/step box */
+/* v18.8: no top HUD + solid NPC collision + visible 3D oil-service assets */
 #hud{display:none!important}
 </style>
 </head>
@@ -464,6 +467,7 @@
   <button id="bottomScrewHotspot" class="screwHotspot" type="button" aria-label="Lower gearcase screw"></button>
 
   <div id="oilCatchGame">
+    <div id="gearOilPan3DHost"><canvas id="gearOilPanCanvas"></canvas></div>
     <div id="oilDrainPoint" title="Lower drain/fill hole"></div>
     <div id="oilStream"></div>
     <div id="oilPan"></div>
@@ -736,6 +740,8 @@ const bottomScrewHotspot=document.getElementById('bottomScrewHotspot');
 const oilCatchGame=document.getElementById('oilCatchGame');
 const oilStream=document.getElementById('oilStream');
 const oilPan=document.getElementById('oilPan');
+const gearOilPan3DHost=document.getElementById('gearOilPan3DHost');
+const gearOilPanCanvas=document.getElementById('gearOilPanCanvas');
 const windReadout=document.getElementById('windReadout');
 const catchReadout=document.getElementById('catchReadout');
 const spillFill=document.getElementById('spillFill');
@@ -1513,7 +1519,7 @@ function updateGage(dt,time){
   const nextPos=gageNPC.position.clone().addScaledVector(dir,gageState.speed*dt);
 
   // Rick gets right-of-way. Gage simply waits rather than clipping through him.
-  if(nextPos.distanceTo(controller.pos)<2.8){
+  if(nextPos.distanceTo(controller.pos)<2.0 || (chasNPC && nextPos.distanceTo(chasNPC.position)<1.35)){
     gageSetAction('idle');
     gageState.idleUntil=time+1.25;
     return;
@@ -1591,7 +1597,7 @@ function updateChas(dt,time){
   dir.normalize();
   const nextPos=chasNPC.position.clone().addScaledVector(dir,chasState.speed*dt);
   // Rick gets right-of-way, and Chas also waits if Gage is directly in his path.
-  if(nextPos.distanceTo(controller.pos)<2.7 || (gageNPC && nextPos.distanceTo(gageNPC.position)<1.65)){
+  if(nextPos.distanceTo(controller.pos)<2.0 || (gageNPC && nextPos.distanceTo(gageNPC.position)<1.35)){
     chasSetAction('idle');chasState.idleUntil=time+1.1;return;
   }
   const surfaceY=getWalkSurfaceY(nextPos.x,nextPos.z);
@@ -1802,6 +1808,42 @@ bottomScrewHotspot.addEventListener('click',()=>{
 });
 
 
+// v18.8 — use Rick's actual 3D drain pan asset in the gear-oil catch game.
+const gearOilPan3d={ready:false,loading:false,renderer:null,scene:null,camera:null,model:null,loop:0};
+function fitGearPanModel(root,target=1.35){
+  const box=new THREE.Box3().setFromObject(root),size=new THREE.Vector3(),center=new THREE.Vector3();
+  box.getSize(size);box.getCenter(center);root.position.sub(center);
+  root.scale.setScalar(target/(Math.max(size.x,size.y,size.z)||1));
+}
+function initGearOilPan3D(){
+  if(gearOilPan3d.ready||gearOilPan3d.loading)return;gearOilPan3d.loading=true;
+  try{
+    const renderer=new THREE.WebGLRenderer({canvas:gearOilPanCanvas,alpha:true,antialias:true,powerPreference:'high-performance'});
+    renderer.setPixelRatio(Math.min(devicePixelRatio,1.35));renderer.setClearColor(0x000000,0);renderer.outputEncoding=THREE.sRGBEncoding;
+    const scene3=new THREE.Scene();
+    const cam=new THREE.OrthographicCamera(-2.55,2.55,1.55,-1.55,.05,30);cam.position.set(0,3.5,5.2);cam.lookAt(0,0,0);
+    scene3.add(new THREE.HemisphereLight(0xf3fbff,0x172127,2.4));const key=new THREE.DirectionalLight(0xffffff,2.0);key.position.set(3,6,5);scene3.add(key);
+    gearOilPan3d.renderer=renderer;gearOilPan3d.scene=scene3;gearOilPan3d.camera=cam;
+    gltfLoader.load('gear_oil_pan.glb',g=>{
+      fitGearPanModel(g.scene,1.45);
+      const wrap=new THREE.Group();wrap.add(g.scene);wrap.rotation.set(-.26,.36,0);wrap.position.set(0,-.72,.15);scene3.add(wrap);
+      gearOilPan3d.model=wrap;gearOilPan3d.ready=true;gearOilPan3d.loading=false;resizeGearOilPan3D();
+    },undefined,()=>{gearOilPan3d.loading=false;});
+  }catch(e){gearOilPan3d.loading=false;}
+}
+function resizeGearOilPan3D(){
+  if(!gearOilPan3d.renderer||!gearOilPan3d.camera)return;const w=Math.max(1,oilCatchGame.clientWidth),h=Math.max(1,oilCatchGame.clientHeight);
+  gearOilPan3d.renderer.setSize(w,h,false);const a=w/h;gearOilPan3d.camera.left=-2.55*a;gearOilPan3d.camera.right=2.55*a;gearOilPan3d.camera.top=1.55;gearOilPan3d.camera.bottom=-1.55;gearOilPan3d.camera.updateProjectionMatrix();
+}
+function updateGearOilPan3D(){
+  if(!gearOilPan3d.model)return;const a=Math.max(.65,oilCatchGame.clientWidth/Math.max(1,oilCatchGame.clientHeight));
+  gearOilPan3d.model.position.x=(serviceState.panX-.5)*(4.1*a);
+}
+function startGearOilPan3DLoop(){
+  if(gearOilPan3d.loop)return;const tick=()=>{gearOilPan3d.loop=0;if(serviceState.step!=='catch'||oilCatchGame.style.display==='none')return;resizeGearOilPan3D();updateGearOilPan3D();if(gearOilPan3d.renderer&&gearOilPan3d.scene&&gearOilPan3d.camera)gearOilPan3d.renderer.render(gearOilPan3d.scene,gearOilPan3d.camera);gearOilPan3d.loop=requestAnimationFrame(tick)};gearOilPan3d.loop=requestAnimationFrame(tick);
+}
+function stopGearOilPan3DLoop(){cancelAnimationFrame(gearOilPan3d.loop);gearOilPan3d.loop=0;}
+
 function startOilCatch(){
   clearServiceUI();serviceState.step='catch';
   serviceState.catchProgress=0;serviceState.spill=-3.0;serviceState.panX=.5;serviceState.wind=0;
@@ -1813,6 +1855,8 @@ function startOilCatch(){
       oilCatchGame.style.display='block';
       oilPanDragging=false;
       oilPan.style.left='50%';
+      initGearOilPan3D();
+      startGearOilPan3DLoop();
       oilDrainPoint.style.left='55%';
       oilStream.style.left='55%';
       oilStream.style.transform='translateX(-50%) rotate(0deg)';
@@ -1830,6 +1874,7 @@ function movePanFromPointer(e){
   const r=oilCatchGame.getBoundingClientRect();
   serviceState.panX=Math.max(.08,Math.min(.92,(e.clientX-r.left)/r.width));
   oilPan.style.left=(serviceState.panX*100)+'%';
+  updateGearOilPan3D();
 }
 oilCatchGame.addEventListener('pointerdown',e=>{
   if(serviceState.step!=='catch')return;
@@ -1877,6 +1922,7 @@ function runOilCatch(now){
     serviceState.step='catchFail';
     oilPanDragging=false;
     oilCatchGame.style.display='none';
+    stopGearOilPan3DLoop();
     serviceCard.style.display='block';
     setServiceText(
       'OIL SPILL',
@@ -1893,6 +1939,7 @@ function runOilCatch(now){
   if(serviceState.catchProgress>=7){
     serviceState.step='catchDone';
     oilCatchGame.style.display='none';
+    stopGearOilPan3DLoop();
     setTimeout(startSelectFill,350);
     return;
   }
@@ -2344,15 +2391,7 @@ async function initEngine3D(){
     engine3d.renderer=r;engine3d.scene=sc;engine3d.camera=cam;
     const jobs=[
       engineLoadModel('powerhead','oil_powerhead.glb',3.65,w=>{w.position.set(-.55,-.12,0);w.rotation.y=-.40}),
-      engineLoadModel('extractor','oil_extractor.glb',1.75,(w,root)=>{
-        w.position.set(2.25,-.58,.25);w.rotation.y=-.55;
-        // The segmented extractor kit also contains the gear-oil drain pan.
-        // Hide that pan during engine-oil service and keep a movable pump piece for the hand-pump animation.
-        root.traverse(o=>{
-          if(o.name==='model_part4')o.visible=false;
-          if(o.name==='model_part3')engine3d.extractorPumpPiece=o;
-        });
-      }),
+      engineLoadModel('extractor','oil_extractor.glb',1.85,w=>{w.position.set(2.05,-.48,.35);w.rotation.set(0,-.52,.02)}),
       engineLoadModel('wrench','oil_filter_wrench.glb',1.35,w=>{w.position.set(1.48,.18,.65);w.rotation.set(0,-.15,-.25)}),
       engineLoadModel('filter','oil_filter.glb',.82,w=>{w.position.set(1.65,.05,.65);w.rotation.set(0,1.15,0)}),
       engineLoadModel('jug','oil_jug.glb',1.25,w=>{w.position.set(1.95,.28,.55);w.rotation.set(0,-.45,.03)}),
@@ -2360,38 +2399,68 @@ async function initEngine3D(){
     ];
     await Promise.all(jobs);engine3d.ready=true;engine3d.loading=false;
     engine3DHost.classList.add('ready');enginePowerheadPhoto.style.opacity=engine3d.models.powerhead?'0':'.45';
-    engine3DLoadBadge.textContent=engine3d.models.powerhead?'3D SERVICE VIEW ✓':'3D TOOLS READY • PHOTO POWERHEAD';
-    engine3DLoadBadge.className=engine3d.models.powerhead?'ok':'fail';setEngine3DStage('powerhead');resizeEngine3D();
+    const toolCount=['extractor','wrench','filter','jug','funnel'].filter(k=>engine3d.models[k]).length;
+    engine3DLoadBadge.textContent=`3D SERVICE ASSETS ${toolCount}/5${engine3d.models.powerhead?' • POWERHEAD ✓':' • PHOTO POWERHEAD'}`;
+    engine3DLoadBadge.className=toolCount===5?'ok':'fail';setEngine3DStage('powerhead');resizeEngine3D();
   }catch(e){console.warn(e);engine3d.loading=false;engine3DLoadBadge.textContent='3D FALLBACK ACTIVE';engine3DLoadBadge.className='fail'}
 }
 function resizeEngine3D(){if(!engine3d.renderer||!engine3d.camera)return;const w=Math.max(1,engine3DHost.clientWidth),h=Math.max(1,engine3DHost.clientHeight);engine3d.renderer.setSize(w,h,false);engine3d.camera.aspect=w/h;engine3d.camera.updateProjectionMatrix()}
 function startEngine3DLoop(){if(engine3d.loop)return;const tick=()=>{engine3d.loop=0;if(!engineOilPanel.classList.contains('active'))return;if(engine3d.renderer&&engine3d.scene&&engine3d.camera){resizeEngine3D();const p=engine3d.models.powerhead;if(p)p.rotation.y+=.0007;engine3d.renderer.render(engine3d.scene,engine3d.camera)}engine3d.loop=requestAnimationFrame(tick)};engine3d.loop=requestAnimationFrame(tick)}
 function showEngineModel(key,on=true){if(engine3d.models[key])engine3d.models[key].visible=on}
-function setEngine3DStage(stage){if(!engine3d.ready)return;Object.keys(engine3d.models).forEach(k=>showEngineModel(k,false));showEngineModel('powerhead',true);const p=engine3d.models.powerhead;if(p){p.position.set(-.55,-.12,0);p.scale.setScalar(1)}
-  if(stage==='extractor'){showEngineModel('extractor',true)}
-  if(stage==='filterBreak'){showEngineModel('filter',true);showEngineModel('wrench',true)}
-  if(stage==='filterSpin'||stage==='filterPrep'||stage==='filterInstall'){showEngineModel('filter',true);if(stage==='filterPrep')showEngineModel('jug',true)}
-  if(stage==='fillSetup'||stage==='fillPour'||stage==='fillFinish'){showEngineModel('jug',true);showEngineModel('funnel',true)}
+function setEngine3DStage(stage){
+  if(!engine3d.ready)return;
+  Object.keys(engine3d.models).forEach(k=>showEngineModel(k,false));
+  const p=engine3d.models.powerhead;
+  showEngineModel('powerhead',true);
+  if(p){p.position.set(-.72,-.12,0);p.scale.setScalar(.94)}
+  const extractor=engine3d.models.extractor,wrench=engine3d.models.wrench,filter=engine3d.models.filter,jug=engine3d.models.jug,funnel=engine3d.models.funnel;
+  if(extractor){extractor.position.set(2.02,-.48,.36);extractor.rotation.set(0,-.52,.02);extractor.scale.setScalar(1)}
+  if(wrench){wrench.position.set(1.48,.20,.82);wrench.rotation.set(0,-.15,-.25);wrench.scale.setScalar(1)}
+  if(filter){filter.position.set(1.56,.02,.78);filter.rotation.set(0,1.15,0);filter.scale.setScalar(1)}
+  if(jug){jug.position.set(2.06,.18,.62);jug.rotation.set(0,-.45,.03);jug.scale.setScalar(1)}
+  if(funnel){funnel.position.set(.98,.48,.72);funnel.rotation.set(0,0,.08);funnel.scale.setScalar(1)}
+
+  if(stage==='extractor'){
+    if(p){p.position.x=-1.15;p.scale.setScalar(.84)}
+    showEngineModel('extractor',true);
+  }
+  if(stage==='filterBreak'){
+    if(p){p.position.x=-1.02;p.scale.setScalar(.88)}
+    showEngineModel('filter',true);showEngineModel('wrench',true);
+  }
+  if(stage==='filterSpin'||stage==='filterInstall'){
+    if(p){p.position.x=-1.02;p.scale.setScalar(.88)}
+    showEngineModel('filter',true);
+  }
+  if(stage==='filterPrep'){
+    if(p){p.position.x=-1.28;p.scale.setScalar(.82)}
+    if(filter){filter.position.set(.92,.06,.78)}
+    if(jug){jug.position.set(2.02,.10,.58)}
+    showEngineModel('filter',true);showEngineModel('jug',true);
+  }
+  if(stage==='fillSetup'||stage==='fillPour'||stage==='fillFinish'){
+    if(p){p.position.x=-1.22;p.scale.setScalar(.84)}
+    showEngineModel('jug',true);showEngineModel('funnel',true);
+    if(stage==='fillPour'&&jug)jug.rotation.z=-.68;
+  }
 }
 function bumpEngineModel(key,kind='pump'){const m=engine3d.models[key];if(!m)return;
-  if(key==='extractor'&&kind==='pump'&&engine3d.extractorPumpPiece){
-    const p=engine3d.extractorPumpPiece;const y=p.position.y;const r=p.rotation.x;
-    p.position.y=y-.012;p.rotation.x=r-.16;
-    setTimeout(()=>{p.position.y=y;p.rotation.x=r},115);return;
-  }
-  const z=m.rotation.z,y=m.position.y;if(kind==='pump'){m.rotation.z=z-.10;m.position.y=y-.05;setTimeout(()=>{m.rotation.z=z;m.position.y=y},115)}else if(kind==='turn'){m.rotation.z=z-.28;setTimeout(()=>m.rotation.z=z,130)}}
+  const z=m.rotation.z,y=m.position.y;
+  if(kind==='pump'){m.rotation.z=z-.15;m.position.y=y-.07;setTimeout(()=>{m.rotation.z=z;m.position.y=y},125)}
+  else if(kind==='turn'){m.rotation.z=z-.30;setTimeout(()=>m.rotation.z=z,135)}
+}
 addEventListener('resize',resizeEngine3D);
 
 function hideOilWorkSubpanels(){extractionControls.style.display='none';filterGesturePad.classList.remove('active');filterPrepControls.classList.remove('show');fillSetupControls.classList.remove('show');fillPourControls.classList.remove('show');finishFillControls.classList.remove('show');dipstickCheckControls.classList.remove('show');filterHotspot.classList.remove('show');fillOpeningHotspot.classList.remove('show')}
 function showOilWork(title,text){engineOilWorkPanel.style.display='block';oilWorkTitle.textContent=title;oilWorkText.innerHTML=text;oilWorkFeedback.textContent=''}
 
 function startOilExtraction(){
-  const s=serviceState.engineOil;engineOilDone.style.display='none';hideOilWorkSubpanels();extractionControls.style.display='block';showOilWork('EXTRACT OLD ENGINE OIL','Oil is moving through the extractor hose. <b>Keep some vacuum on the extractor</b>; if it drops too low, flow pauses until you pump again.');
+  const s=serviceState.engineOil;engineOilDone.style.display='none';hideOilWorkSubpanels();extractionControls.style.display='block';showOilWork('EXTRACT OLD ENGINE OIL','The <b>3D extractor</b> is hooked to the dipstick tube. Keep some vacuum on it; if vacuum drops too low, oil flow pauses until you pump again.');
   serviceState.step='engineOilExtract';s.vacuum=100;s.extracted=0;s.lastExtractTime=performance.now();setEngine3DStage('extractor');engineOilStatus.textContent='EXTRACTING OLD ENGINE OIL';jobBadge.textContent='ENGINE OIL: EXTRACTING';
   cancelAnimationFrame(s.extractLoop);const loop=t=>{if(serviceState.step!=='engineOilExtract')return;const dt=Math.min(.05,(t-s.lastExtractTime)/1000||0);s.lastExtractTime=t;s.vacuum=Math.max(0,s.vacuum-dt*5.2);const flowing=s.vacuum>16;if(flowing)s.extracted=Math.min(1,s.extracted+dt*(.020+.050*(s.vacuum/100)));extractVacuumFill.style.width=s.vacuum+'%';extractVacuumLabel.textContent=`VACUUM ${Math.round(s.vacuum)}%`;oldOilFill.style.width=(s.extracted*100)+'%';oldOilLabel.textContent=`OLD OIL EXTRACTED ${Math.round(s.extracted*100)}%`;oilFlowTube.classList.toggle('flowing',flowing);oilWorkFeedback.textContent=flowing?(s.vacuum<34?'VACUUM GETTING LOW — GIVE IT A PUMP':'OLD OIL IS FLOWING…'):'FLOW PAUSED — PUMP THE EXTRACTOR';oilWorkFeedback.style.color=flowing?'#aeeaff':'#ffcf7c';if(s.extracted>=1){finishOilExtraction();return}s.extractLoop=requestAnimationFrame(loop)};s.extractLoop=requestAnimationFrame(loop)
 }
 maintainVacuumBtn.addEventListener('click',()=>{if(serviceState.step!=='engineOilExtract')return;const s=serviceState.engineOil;s.vacuum=Math.min(100,s.vacuum+28);bumpEngineModel('extractor','pump');maintainVacuumBtn.animate([{transform:'scale(1)'},{transform:'scale(.92)'},{transform:'scale(1)'}],{duration:130})});
-function finishOilExtraction(){const s=serviceState.engineOil;cancelAnimationFrame(s.extractLoop);oilFlowTube.classList.remove('flowing');serviceState.step='engineOilFilterFind';engineOilStatus.textContent='OLD ENGINE OIL EXTRACTED ✓';jobBadge.textContent='ENGINE OIL: REPLACE FILTER';setEngine3DStage('filterBreak');hideOilWorkSubpanels();showOilWork('REPLACE THE OIL FILTER','Old oil is out. Tap the highlighted <b>oil filter</b> to put the filter wrench on it.');filterHotspot.classList.add('show')}
+function finishOilExtraction(){const s=serviceState.engineOil;cancelAnimationFrame(s.extractLoop);oilFlowTube.classList.remove('flowing');serviceState.step='engineOilFilterFind';engineOilStatus.textContent='OLD ENGINE OIL EXTRACTED ✓';jobBadge.textContent='ENGINE OIL: REPLACE FILTER';setEngine3DStage('filterBreak');hideOilWorkSubpanels();showOilWork('REPLACE THE OIL FILTER','Old oil is out. The <b>3D oil filter and filter wrench</b> are in view. Tap the highlighted filter to put the wrench on it.');filterHotspot.classList.add('show')}
 filterHotspot.addEventListener('click',()=>{if(serviceState.step!=='engineOilFilterFind')return;filterHotspot.classList.remove('show');startFilterGesture('engineOilFilterBreak',3,'LEFT','Break the old filter loose with the filter wrench.','FILTER WRENCH — SWIPE LEFT')});
 function startFilterGesture(step,turns,dir,text,label){const s=serviceState.engineOil;serviceState.step=step;s.filterTurns=0;hideOilWorkSubpanels();showOilWork(label,text);filterGesturePad.classList.add('active');filterGestureArrow.textContent=dir==='LEFT'?'←':'→';filterCount.textContent=`0 / ${turns} ${dir} SWIPES`;filterGesturePad.dataset.goal=turns;filterGesturePad.dataset.dir=dir;setEngine3DStage(step==='engineOilFilterBreak'?'filterBreak':step==='engineOilFilterInstall'?'filterInstall':'filterSpin')}
 filterGesturePad.addEventListener('pointerdown',e=>{if(!filterGesturePad.classList.contains('active'))return;const s=serviceState.engineOil;s.gestureTracking=true;s.gestureStartX=e.clientX;filterGesturePad.setPointerCapture?.(e.pointerId)});
@@ -2400,7 +2469,7 @@ function completeFilterGesture(){const step=serviceState.step;if(step==='engineO
 function startFilterPrep(){serviceState.step='engineOilFilterPrep';hideOilWorkSubpanels();showOilWork('PREP THE NEW FILTER','Put a little fresh oil on the new filter gasket before installing it.');filterPrepControls.classList.add('show');oilGasketBtn.style.display='inline-block';startFilterInstallBtn.style.display='none';setEngine3DStage('filterPrep');engineOilStatus.textContent='OLD OIL FILTER REMOVED ✓'}
 oilGasketBtn.addEventListener('click',()=>{if(serviceState.step!=='engineOilFilterPrep')return;serviceState.engineOil.gasketOiled=true;oilGasketBtn.style.display='none';startFilterInstallBtn.style.display='inline-block';oilWorkFeedback.textContent='GASKET OILED ✓';oilWorkFeedback.style.color='#83efb1';bumpEngineModel('jug','turn')});
 startFilterInstallBtn.addEventListener('click',()=>{if(!serviceState.engineOil.gasketOiled)return;startFilterGesture('engineOilFilterInstall',4,'RIGHT','Thread the new filter on by hand. Finish with a snug hand-tight turn.','INSTALL NEW OIL FILTER')});
-function finishFilterInstall(){const s=serviceState.engineOil;s.filterInstalled=true;serviceState.step='engineOilFillCap';hideOilWorkSubpanels();showOilWork('ADD FRESH ENGINE OIL','New filter is installed. Tap the highlighted <b>oil-fill opening</b> to remove the cap.');fillOpeningHotspot.classList.add('show');setEngine3DStage('fillSetup');engineOilStatus.textContent='NEW OIL FILTER INSTALLED ✓';jobBadge.textContent='ENGINE OIL: FILL'}
+function finishFilterInstall(){const s=serviceState.engineOil;s.filterInstalled=true;serviceState.step='engineOilFillCap';hideOilWorkSubpanels();showOilWork('ADD FRESH ENGINE OIL','New filter is installed. The <b>3D oil jug and orange funnel</b> are ready. Tap the highlighted oil-fill opening to remove the cap.');fillOpeningHotspot.classList.add('show');setEngine3DStage('fillSetup');engineOilStatus.textContent='NEW OIL FILTER INSTALLED ✓';jobBadge.textContent='ENGINE OIL: FILL'}
 fillOpeningHotspot.addEventListener('click',()=>{if(serviceState.step!=='engineOilFillCap'&&serviceState.step!=='engineOilPlaceFunnel')return;const s=serviceState.engineOil;if(serviceState.step==='engineOilFillCap'){s.fillCapRemoved=true;serviceState.step='engineOilPickFunnel';fillOpeningHotspot.classList.remove('show');hideOilWorkSubpanels();showOilWork('INSTALL THE FUNNEL','Oil cap is off. Pick up the orange funnel, then tap the fill opening to seat it.');fillSetupControls.classList.add('show');pickFunnelBtn.textContent='PICK UP FUNNEL';setEngine3DStage('fillSetup')}else{s.funnelInstalled=true;fillOpeningHotspot.classList.remove('show');startFreshOilPour()}});
 pickFunnelBtn.addEventListener('click',()=>{if(serviceState.step!=='engineOilPickFunnel')return;serviceState.engineOil.funnelPicked=true;serviceState.step='engineOilPlaceFunnel';pickFunnelBtn.textContent='FUNNEL IN HAND ✓';oilWorkFeedback.textContent='NOW TAP THE HIGHLIGHTED FILL OPENING';fillOpeningHotspot.classList.add('show');setEngine3DStage('fillSetup')});
 function startFreshOilPour(){const s=serviceState.engineOil;serviceState.step='engineOilPour';s.freshOil=0;hideOilWorkSubpanels();showOilWork('FILL WITH FRESH OIL','Hold <b>POUR OIL</b> and release in the green target. Slightly high will not fail the job — the dipstick check catches it.');fillPourControls.classList.add('show');setEngine3DStage('fillPour');freshOilFill.style.width='0%';freshOilLabel.textContent='NEW OIL 0% • TARGET 78–90%';oilWorkFeedback.textContent='HOLD TO POUR';}
@@ -2930,6 +2999,28 @@ function updateManateeYell(time){
   yellFromManatee(time);
 }
 
+// v18.8 — solid NPC collision. Rick can no longer walk through Gage or Chas.
+function collidesWithNPC(x,z,clearance=1.05){
+  const npcs=[gageNPC,chasNPC];
+  for(const npc of npcs){
+    if(!npc||npc.visible===false)continue;
+    const dx=x-npc.position.x,dz=z-npc.position.z;
+    if(dx*dx+dz*dz<clearance*clearance)return true;
+  }
+  return false;
+}
+function tryMoveRickWithNPCCollision(nextX,nextZ){
+  const x0=controller.pos.x,z0=controller.pos.z;
+  let surfaceY=getWalkSurfaceY(nextX,nextZ);
+  if(surfaceY!==null&&!collidesWithNPC(nextX,nextZ))return {x:nextX,z:nextZ,y:surfaceY};
+  // Slide along an NPC instead of sticking completely when the joystick is diagonal.
+  surfaceY=getWalkSurfaceY(nextX,z0);
+  if(surfaceY!==null&&!collidesWithNPC(nextX,z0))return {x:nextX,z:z0,y:surfaceY};
+  surfaceY=getWalkSurfaceY(x0,nextZ);
+  if(surfaceY!==null&&!collidesWithNPC(x0,nextZ))return {x:x0,z:nextZ,y:surfaceY};
+  return null;
+}
+
 function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.034);const time=clock.elapsedTime;
  updateManateeYell(time);
  // Water ripples.
@@ -2972,13 +3063,13 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
          const gustZ=nextZ+rainState.windZ*dt*.62;
          if(getWalkSurfaceY(gustX,gustZ)!==null){nextX=gustX;nextZ=gustZ;}
        }
-       const surfaceY=getWalkSurfaceY(nextX,nextZ);
-       if(surfaceY!==null){
-         controller.pos.x=nextX;
-         controller.pos.z=nextZ;
+       const moveResult=tryMoveRickWithNPCCollision(nextX,nextZ);
+       if(moveResult){
+         controller.pos.x=moveResult.x;
+         controller.pos.z=moveResult.z;
          if(controller.onGround){
-           controller.groundY=surfaceY;
-           controller.pos.y=surfaceY;
+           controller.groundY=moveResult.y;
+           controller.pos.y=moveResult.y;
          }
        }
        if(controller.onGround){
