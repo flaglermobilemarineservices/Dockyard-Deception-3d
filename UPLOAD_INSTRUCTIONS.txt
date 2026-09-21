@@ -1,9 +1,10 @@
-DOCKYARD DECEPTION v18.2 — GITHUB MOBILE-SAFE
+Dockyard Deception v18.7 — Chas NPC + Clean HUD
 
-Do NOT upload this ZIP itself.
+Changes:
+- Added Chas as an ambient dock NPC using the supplied Meshy walk and idle animations.
+- Chas wanders the safe dock graph, pauses naturally, avoids Rick and Gage, and is tagged for reuse as a future client.
+- Removed the old top-left training/step/status box from view.
+- Keeps the full v18.6 3D engine-oil service.
 
-Extract the ZIP, then upload EVERY individual file inside to the ROOT
-of the GitHub repository using Add file > Upload files.
-
-Keep every filename exactly as-is. index.html must remain index.html.
-This build includes the gear-oil freeze fix and the random manatee yell.
+Upload every file in the full package to the repo root, replacing matching files.
+For an existing v18.6 install, the update package only needs index.html, chas_walk.glb, chas_idle.glb.
