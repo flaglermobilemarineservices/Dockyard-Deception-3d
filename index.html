@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Dockyard Deception — v18.10 Six Plugs + Cash + UI Polish</title>
+<title>Dockyard Deception — v18.11 Payday + Pan + Voice + Decline Flow</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07121a;color:white;font-family:Inter,system-ui,Arial,sans-serif;touch-action:none}body{position:relative}
 #stage{position:absolute;inset:0}canvas{display:block;width:100%;height:100%}
@@ -470,6 +470,19 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 #sparkProgress{margin-top:3px!important;font-size:11px!important}
 @media(pointer:coarse){#moneyMeter{right:8px;top:8px;padding:6px 9px;font-size:12px}#serviceCard{width:min(420px,72vw)}#fullscreenBtn{width:34px;height:34px;font-size:16px;bottom:6px}}
 
+/* v18.11 — pan placement, unobtrusive fullscreen, payday + decline flow */
+#fullscreenBtn{left:auto!important;right:5px!important;top:44%!important;bottom:auto!important;transform:translateY(-50%)!important;width:25px!important;height:25px!important;font-size:13px!important;opacity:.24!important;border-radius:8px!important}
+#fullscreenBtn:hover,#fullscreenBtn:active{opacity:.72!important;transform:translateY(-50%) scale(.96)!important}
+:fullscreen #fullscreenBtn,html:-webkit-full-screen #fullscreenBtn{display:none!important}
+#paydayCutsceneOverlay{position:absolute;inset:0;z-index:96;background:#000;display:none;align-items:center;justify-content:center;overflow:hidden}
+#paydayCutsceneVideo{width:100%;height:100%;object-fit:contain;background:#000}
+#skipPaydayCutscene{position:absolute;right:12px;top:12px;z-index:98;border:1px solid rgba(255,255,255,.46);background:rgba(0,0,0,.52);color:white;border-radius:999px;padding:8px 11px;font-weight:900;font-size:11px}
+#declinePopup{position:absolute;left:50%;top:18%;transform:translate(-50%,-50%) scale(.86);z-index:79;display:none;min-width:min(430px,86vw);text-align:center;padding:13px 16px;border-radius:15px;background:rgba(30,8,10,.92);border:2px solid rgba(255,112,112,.72);box-shadow:0 18px 55px rgba(0,0,0,.48);pointer-events:none}
+#declinePopup.show{display:block;animation:firstJobPop 2.9s ease both}
+#declinePopup .big{font-size:clamp(20px,4.7vw,34px);font-weight:1000;color:#ff9090}
+#declinePopup .sub{margin-top:5px;color:#ffe1d8;font-size:clamp(11px,2.2vw,14px);font-weight:800;line-height:1.3}
+@media(pointer:coarse){#fullscreenBtn{right:4px!important;top:42%!important;width:23px!important;height:23px!important;font-size:12px!important}}
+
 </style>
 </head>
 <body>
@@ -497,6 +510,14 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 <div id="jobStartPopup">
   <div class="big">START THE ANNUAL SERVICE</div>
   <div class="sub">The outboard is ready • first job setup begins</div>
+</div>
+<div id="declinePopup">
+  <div class="big">FIRST JOB DECLINED</div>
+  <div class="sub">No job = no money. Gage: “Bold strategy… bills still exist.”<br>Another customer will call in <span id="declineCountdown">8</span>s.</div>
+</div>
+<div id="paydayCutsceneOverlay">
+  <video id="paydayCutsceneVideo" playsinline preload="auto" src="payday_cutscene.mp4"></video>
+  <button id="skipPaydayCutscene" type="button">SKIP</button>
 </div>
 <audio id="boatDaddyMusic" preload="auto" src="boat_daddy_rick.mp3"></audio>
 <audio id="boatDaddyRides" preload="auto" src="boat_daddy_rides.mp3"></audio>
@@ -771,9 +792,11 @@ async function enterGameFullscreen(){
 }
 function syncFullscreenButton(){
   if(!fullscreenBtn)return;
-  fullscreenBtn.textContent=document.fullscreenElement?'↙':'⛶';
-  fullscreenBtn.title=document.fullscreenElement?'Exit full screen':'Full screen';
-  fullscreenBtn.setAttribute('aria-label',fullscreenBtn.title);
+  const fs=document.fullscreenElement||document.webkitFullscreenElement;
+  fullscreenBtn.style.display=fs?'none':'';
+  fullscreenBtn.textContent='⛶';
+  fullscreenBtn.title='Full screen';
+  fullscreenBtn.setAttribute('aria-label','Full screen');
 }
 fullscreenBtn?.addEventListener('click',async e=>{
   e.preventDefault();e.stopPropagation();
@@ -809,6 +832,11 @@ const arrivalCutsceneOverlay=document.getElementById('arrivalCutsceneOverlay');
 const arrivalCutsceneVideo=document.getElementById('arrivalCutsceneVideo');
 const skipArrivalCutscene=document.getElementById('skipArrivalCutscene');
 const jobStartPopup=document.getElementById('jobStartPopup');
+const declinePopup=document.getElementById('declinePopup');
+const declineCountdown=document.getElementById('declineCountdown');
+const paydayCutsceneOverlay=document.getElementById('paydayCutsceneOverlay');
+const paydayCutsceneVideo=document.getElementById('paydayCutsceneVideo');
+const skipPaydayCutscene=document.getElementById('skipPaydayCutscene');
 const serviceOverlay=document.getElementById('serviceOverlay');
 const serviceCard=document.getElementById('serviceCard');
 const serviceTitle=document.getElementById('serviceTitle');
@@ -906,7 +934,17 @@ function currentMusic(){return musicPlaylist[musicIndex]}
 function setMusicVolume(v){musicVolume=v;musicPlaylist.forEach(a=>a.volume=v)}
 function stopOtherMusic(keep){musicPlaylist.forEach(a=>{if(a!==keep)a.pause()})}
 async function playMusicIndex(i,reset=false){musicIndex=(i+musicPlaylist.length)%musicPlaylist.length;const a=currentMusic();stopOtherMusic(a);if(reset)a.currentTime=0;setMusicVolume(musicVolume);if(musicWanted){try{await a.play();musicStarted=true}catch(e){}}}
-musicPlaylist.forEach((a,i)=>a.addEventListener('ended',()=>{if(i===musicIndex)playMusicIndex((i+1)%musicPlaylist.length,true)}));
+musicPlaylist.forEach((a,i)=>{
+  a.loop=false;a.preload='auto';
+  a.addEventListener('ended',()=>{
+    if(i!==musicIndex||!musicWanted)return;
+    const d=Number(a.duration),t=Number(a.currentTime);
+    // Only move to the next track after the browser has actually reached the end.
+    // If a mobile browser fires an early/spurious ended event, resume this song instead.
+    if(Number.isFinite(d)&&d>1&&Number.isFinite(t)&&t<d-.45){try{a.play()}catch(e){};return}
+    playMusicIndex((i+1)%musicPlaylist.length,true);
+  });
+});
 setMusicVolume(.58);
 async function startMusicFromGesture(){if(!musicWanted||musicStarted)return;await playMusicIndex(musicIndex,false);musicCtl.textContent='MUSIC: ON'}
 musicCtl.addEventListener('click',async e=>{e.stopPropagation();musicWanted=!musicWanted;if(musicWanted){musicCtl.textContent='MUSIC: ON';await playMusicIndex(musicIndex,false)}else{musicPlaylist.forEach(a=>a.pause());musicCtl.textContent='MUSIC: OFF'}});
@@ -1942,13 +1980,13 @@ function initGearOilPan3D(){
     const renderer=new THREE.WebGLRenderer({canvas:gearOilPanCanvas,alpha:true,antialias:true,powerPreference:'high-performance'});
     renderer.setPixelRatio(Math.min(devicePixelRatio,1.35));renderer.setClearColor(0x000000,0);renderer.outputEncoding=THREE.sRGBEncoding;
     const scene3=new THREE.Scene();
-    const cam=new THREE.OrthographicCamera(-2.55,2.55,1.55,-1.55,.05,30);cam.position.set(0,3.5,5.2);cam.lookAt(0,0,0);
+    const cam=new THREE.OrthographicCamera(-2.55,2.55,1.55,-1.55,.05,30);cam.position.set(0,4.8,5.0);cam.lookAt(0,-.25,0);
     scene3.add(new THREE.HemisphereLight(0xf3fbff,0x172127,2.4));const key=new THREE.DirectionalLight(0xffffff,2.0);key.position.set(3,6,5);scene3.add(key);
     gearOilPan3d.renderer=renderer;gearOilPan3d.scene=scene3;gearOilPan3d.camera=cam;
     gltfLoader.load('gear_oil_pan.glb',g=>{
-      fitGearPanModel(g.scene,2.05);
+      fitGearPanModel(g.scene,1.90);g.scene.scale.x*=1.55;g.scene.scale.y*=.75;g.scene.scale.z*=.55;
       g.scene.traverse(o=>{if(o.isMesh&&o.material){const mats=Array.isArray(o.material)?o.material:[o.material];o.material=mats.map(m=>{const c=m.clone();if(c.color)c.color.set(0x090b0d);if('metalness' in c)c.metalness=Math.max(.18,c.metalness||0);if('roughness' in c)c.roughness=.72;return c});if(o.material.length===1)o.material=o.material[0]}});
-      const wrap=new THREE.Group();wrap.add(g.scene);wrap.rotation.set(-.20,.24,0);wrap.position.set(0,-1.12,.15);scene3.add(wrap);
+      const wrap=new THREE.Group();wrap.add(g.scene);/* broad X/Z opening faces +Y: flat/open side UP */wrap.rotation.set(0,.08,0);wrap.position.set(0,-1.90,.25);scene3.add(wrap);
       gearOilPan3d.model=wrap;gearOilPan3d.ready=true;gearOilPan3d.loading=false;resizeGearOilPan3D();
     },undefined,()=>{gearOilPan3d.loading=false;});
   }catch(e){gearOilPan3d.loading=false;}
@@ -2623,6 +2661,44 @@ function failSparkPlug(reason){const s=serviceState.spark;s.tracking=false;spark
 sparkRetry.addEventListener('click',resetCurrentSparkPlug);
 sparkSwipePad.addEventListener('pointerdown',e=>{if(!serviceState.spark.active)return;const s=serviceState.spark;s.tracking=true;s.startX=e.clientX;sparkSwipePad.setPointerCapture?.(e.pointerId)});
 sparkSwipePad.addEventListener('pointerup',e=>{const s=serviceState.spark;if(!s.tracking||sparkFail.classList.contains('show'))return;s.tracking=false;const dx=e.clientX-s.startX,mag=Math.abs(dx);if(mag<42){sparkFeedback.textContent='BIGGER SWIPE';return}const got=dx<0?'LEFT':'RIGHT',want=s.phase==='remove'?'LEFT':'RIGHT';if(got!==want){s.wrong++;sparkFeedback.textContent=`WRONG DIRECTION ${s.wrong}/3`;sparkFeedback.style.color='#ffcf7c';if(s.wrong>=3)failSparkPlug('The plug got crossed up from repeated wrong-direction turns. Retry this plug.');return}s.wrong=0;if(s.phase==='torque'){if(mag>205){failSparkPlug('SNAP! You over-tightened the spark plug. Replace it and retry.');return}sparkFeedback.style.color='#83efb1';sparkFeedback.textContent='TORQUED CORRECTLY ✓';setTimeout(completeSparkPlug,420);return}s.swipes++;sparkFeedback.style.color='#83efb1';sparkFeedback.textContent='GOOD TURN ✓';if(spark3d.models.ratchet){const r=spark3d.models.ratchet,rz=r.rotation.z;r.rotation.z=rz+(got==='LEFT'?-0.30:.30);setTimeout(()=>r.rotation.z=rz,140)}if(spark3d.models.plug){const p=spark3d.models.plug;p.rotation.y+=(got==='LEFT'?-0.35:.35);p.position.x+=(s.phase==='remove'?-0.08:.08)}if(s.swipes>=4){if(s.phase==='remove'){s.phase='install';s.swipes=0;sparkFeedback.textContent='OLD PLUG OUT ✓ • NEW PLUG READY';setTimeout(sparkPoseForPhase,300)}else{s.phase='torque';s.swipes=0;setTimeout(sparkPoseForPhase,250)}}else sparkPoseForPhase()});
+let paydayFinishing=false;
+function grantFirstJobPayday(){
+  const sp=serviceState.spark;
+  if(sp&&!sp.paid&&!isGuestPlayer()){
+    sp.paid=true;
+    const before=gameCash;
+    setGameCash(Math.max(gameCash,300),true);
+    if(paymentToast){
+      paymentToast.textContent=before<300?'CUSTOMER PAID +$300':`CASH $${gameCash.toLocaleString()}`;
+      paymentToast.classList.remove('show');void paymentToast.offsetWidth;paymentToast.classList.add('show');setTimeout(()=>paymentToast.classList.remove('show'),2600);
+    }
+  }
+}
+function showMoneyExplainer(){
+  serviceOverlay.classList.add('active');serviceCard.style.display='block';
+  setServiceText('PAYDAY — $300','Your <b>cash</b> can be used to buy <b>tools, health, energy, outfits, and helpers</b>. Earn more by completing jobs.','CASH UNLOCKED • $300');
+  serviceButtons.innerHTML='';
+  serviceButton('GOT IT',()=>{serviceCard.style.display='none';serviceOverlay.classList.remove('active');jobBadge.textContent='JOB COMPLETE • PAID $300';animStatus.textContent='Annual service complete • customer paid $300'});
+}
+function finishPaydayCutscene(){
+  if(paydayFinishing)return;paydayFinishing=true;
+  try{paydayCutsceneVideo.pause()}catch(e){}
+  paydayCutsceneOverlay.style.display='none';
+  setMusicVolume(.58);
+  grantFirstJobPayday();
+  showMoneyExplainer();
+  setTimeout(()=>{paydayFinishing=false},300);
+}
+async function playPaydayCutscene(){
+  paydayFinishing=false;document.exitPointerLock?.();
+  paydayCutsceneOverlay.style.display='flex';
+  setMusicVolume(.08);
+  paydayCutsceneVideo.currentTime=0;
+  try{await paydayCutsceneVideo.play()}catch(e){finishPaydayCutscene()}
+}
+paydayCutsceneVideo?.addEventListener('ended',finishPaydayCutscene);
+skipPaydayCutscene?.addEventListener('click',finishPaydayCutscene);
+
 function completeSparkPlug(){
   const s=serviceState.spark;
   if(s.plug<s.total){
@@ -2637,11 +2713,8 @@ function completeSparkPlug(){
   sparkSwipePad.style.display='none';
   setTimeout(()=>{
     sparkPanel.classList.remove('active');sparkSwipePad.style.display='flex';cancelAnimationFrame(spark3d.loop);spark3d.loop=0;
-    if(!s.paid&&!isGuestPlayer()){s.paid=true;awardMoney(300)}
-    serviceOverlay.classList.add('active');serviceCard.style.display='block';
-    setServiceText('ANNUAL SERVICE COMPLETE ✓','Six spark plugs are installed. The customer pays <b>$300</b>.','JOB COMPLETE • +$300');
-    serviceButtons.innerHTML='';
-    serviceButton('DONE',()=>{serviceCard.style.display='none';serviceOverlay.classList.remove('active');jobBadge.textContent='JOB COMPLETE • PAID $300';animStatus.textContent='Annual service complete • customer paid $300'});
+    // Payday cutscene plays first. Cash appears only after the scene ends (or is skipped).
+    playPaydayCutscene();
   },850);
 }
 addEventListener('resize',resizeSpark3D);
@@ -2734,16 +2807,28 @@ function showCustomerCall(force=false){
   try{navigator.vibrate?.([240,120,240,120,360]);}catch(e){}
 }
 
+let declineRetryTimer=0,declineTickTimer=0;
+function handleFirstJobDecline(){
+  clearTimeout(declineRetryTimer);clearInterval(declineTickTimer);
+  let remaining=8;if(declineCountdown)declineCountdown.textContent=remaining;
+  declinePopup?.classList.remove('show');if(declinePopup){void declinePopup.offsetWidth;declinePopup.classList.add('show')}
+  declineTickTimer=setInterval(()=>{remaining=Math.max(0,remaining-1);if(declineCountdown)declineCountdown.textContent=remaining;if(!remaining)clearInterval(declineTickTimer)},1000);
+  declineRetryTimer=setTimeout(()=>{
+    declinePopup?.classList.remove('show');
+    // Declining teaches the consequence (no pay/progress), but never traps the tutorial.
+    callState.triggered=false;callState.accepted=false;showCustomerCall(true);
+  },8000);
+}
 function resolveCustomerCall(accepted){
   if(!callState.active) return;
   callState.active=false;
   callState.accepted=accepted;
   drawPhoneScreen(accepted?'accepted':'declined');
-  jobBadge.textContent=accepted?'ANNUAL SERVICE ACCEPTED':'CALL DECLINED';
-  animStatus.textContent=accepted?'Annual service accepted':'Call declined';
+  jobBadge.textContent=accepted?'ANNUAL SERVICE ACCEPTED':'CALL DECLINED • NO PAY';
+  animStatus.textContent=accepted?'Annual service accepted':'First job declined — another call is coming';
   setTimeout(()=>{
     if(phoneRoot)phoneRoot.visible=false;
-    if(accepted)playFirstJobCutscene();
+    if(accepted)playFirstJobCutscene();else handleFirstJobDecline();
   },520);
 }
 
@@ -3153,6 +3238,18 @@ function lerpAngle(a,b,t){let d=((b-a+Math.PI)%(Math.PI*2))-Math.PI;return a+d*t
 
 const camTarget=new THREE.Vector3();const desiredCam=new THREE.Vector3();
 
+let cachedOldManVoice=null;
+function pickOldManVoice(){
+  if(!('speechSynthesis' in window))return null;
+  const voices=window.speechSynthesis.getVoices?.()||[];
+  if(!voices.length)return null;
+  const en=voices.filter(v=>/^en[-_]/i.test(v.lang||''));
+  const pool=en.length?en:voices;
+  const male=/male|david|daniel|mark|george|james|brian|arthur|christopher|thomas|fred|alex|guy|ryan|aaron|eric|roger|paul|matthew|oliver/i;
+  const female=/female|zira|samantha|victoria|karen|susan|linda|jenny|aria|ava|emma|joanna/i;
+  return pool.find(v=>male.test(v.name||''))||pool.find(v=>!female.test(v.name||''))||pool[0]||null;
+}
+if('speechSynthesis' in window){try{window.speechSynthesis.addEventListener?.('voiceschanged',()=>{cachedOldManVoice=pickOldManVoice()})}catch(e){}}
 function yellFromManatee(time){
   manateeState.lastYell=time;
   manateeState.nextYell=time+35+Math.random()*75;
@@ -3168,14 +3265,13 @@ function yellFromManatee(time){
   try{
     if('speechSynthesis' in window){
       window.speechSynthesis.cancel();
-      const u=new SpeechSynthesisUtterance('fuck you!');
-      u.rate=.82;
-      u.pitch=.72;
+      const u=new SpeechSynthesisUtterance('Fuck you!');
+      // Deliberately slow/deep for a grumpy funny old-man sound instead of the default robot voice.
+      u.rate=.64;
+      u.pitch=.24;
       u.volume=1;
-      const voices=window.speechSynthesis.getVoices?.()||[];
-      const english=voices.filter(v=>/^en[-_]/i.test(v.lang||''));
-      const maleish=english.find(v=>/male|guy|daniel|david|fred|thomas|alex/i.test(v.name||''))||english[0]||voices[0];
-      if(maleish)u.voice=maleish;
+      cachedOldManVoice=cachedOldManVoice||pickOldManVoice();
+      if(cachedOldManVoice)u.voice=cachedOldManVoice;
       window.speechSynthesis.speak(u);
     }
   }catch(e){}

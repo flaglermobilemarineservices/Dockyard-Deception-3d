@@ -1,13 +1,16 @@
-Dockyard Deception v18.10 UI + Gear Pan + 6 Plugs + Cash
+Dockyard Deception v18.11 update
 
-This update goes on top of v18.9.2 / v18.9 assets.
-Upload index.html to the GitHub repo root and replace the existing index.html.
-No GLB, music, or other asset files need to be uploaded again.
+Upload these files to the SAME GitHub repo root as v18.10:
+- index.html (replace the old one)
+- payday_cutscene.mp4 (new file)
 
-Changes:
-- Gear-oil pan is larger, lower under the draining oil, black, and has a wider catch area.
-- Spark-plug service now runs through six plugs.
-- Completing all six plugs finishes the job and pays $300.
-- Persistent CASH meter added on screen; host cash also syncs to Gage in multiplayer.
-- Full-screen control is now a tiny icon instead of a large EXIT FULL SCREEN prompt.
-- Job instruction cards and spark instruction header are smaller.
+Do not remove your existing GLBs, songs, character files, or other cutscenes.
+
+v18.11 changes:
+- gear-oil drain pan: black, wider/larger, open side facing up, positioned under the oil stream
+- fullscreen icon is tiny and disappears while fullscreen is active
+- playlist advances only after each track reaches its real end
+- manatee yell uses a much deeper/slower old-man voice profile and prefers male English system voices
+- new payday cutscene plays after plug #6
+- cash updates after the payday scene, then explains tools/health/energy/outfits/helpers
+- declining the first job now means no pay/progress; another customer calls 8 seconds later so the tutorial cannot soft-lock
