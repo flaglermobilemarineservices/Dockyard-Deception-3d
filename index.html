@@ -128,7 +128,7 @@
   opacity:.92
 }
 #oilPan{
-  position:absolute;bottom:12px;left:50%;width:128px;height:34px;
+  position:absolute;bottom:12px;left:50%;width:160px;height:34px;
   transform:translateX(-50%);border:4px solid #9ea5aa;border-top-width:7px;
   border-radius:12px 12px 22px 22px;background:rgba(36,39,42,.92);
   box-shadow:inset 0 7px 0 rgba(0,0,0,.36)
@@ -1601,12 +1601,12 @@ function runOilCatch(now){
   const dt=Math.min(.05,(now-serviceState.lastOilTime)/1000||.016);serviceState.lastOilTime=now;
   // Strong, shifting marina gusts, but the collision target now matches the VISIBLE oil stream.
   serviceState.wind=
-    .78*Math.sin(now*.00185)+
-    .41*Math.sin(now*.0049+1.7)+
-    .22*Math.sin(now*.0107+4.1);
+    .42*Math.sin(now*.00165)+
+    .22*Math.sin(now*.0043+1.7)+
+    .11*Math.sin(now*.0092+4.1);
 
   const absWind=Math.abs(serviceState.wind);
-  const streamX=THREE.MathUtils.clamp(.55+serviceState.wind*.22,.12,.88);
+  const streamX=THREE.MathUtils.clamp(.55+serviceState.wind*.17,.12,.88);
   oilStream.style.transform=`translateX(-50%) rotate(${serviceState.wind*12}deg)`;
   oilStream.style.left=(streamX*100)+'%';
   oilDrainPoint.style.left=(streamX*100)+'%';
@@ -1617,9 +1617,9 @@ function runOilCatch(now){
     serviceState.wind<-.65?'GUST: ←←':
     serviceState.wind<-.18?'WIND: ←':'WIND: CALM';
 
-  const caught=Math.abs(serviceState.panX-streamX)<.105;
+  const caught=Math.abs(serviceState.panX-streamX)<.155;
   if(caught)serviceState.catchProgress+=dt;
-  else serviceState.spill+=dt*(5.5+absWind*1.8);
+  else serviceState.spill+=dt*(3.8+absWind*1.1);
 
   catchReadout.textContent=`DRAIN: ${Math.min(100,Math.round(serviceState.catchProgress/7*100))}%`;
   spillFill.style.width=Math.min(100,serviceState.spill/40*100)+'%';
