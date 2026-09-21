@@ -1,15 +1,11 @@
-Dockyard Deception v18.14 — Pan + Music + Water/Sky
+Dockyard Deception v18.15
 
-Upload these four files to the repo root and replace matching files:
-- index.html
-- boat_daddy_rick.mp3
-- boat_daddy_rides.mp3
-- boat_daddy_rick_song3.mp3
+Replace the existing index.html in the repo root with this one.
 
-Fixes:
-- smaller gear-oil pan, centered lower under the oil stream
-- catch zone aligned to the visible center of the pan
-- music files included again; mobile audio retries until a real gesture unlocks playback
-- songs only advance after their actual ended event at the real end of the track
-- brighter late-afternoon Florida sky with soft procedural clouds
-- cleaner blue-green marina water with moving highlights and gentler ripples
+Changes:
+- Gear-oil pan resized to a medium size between v18.13 and v18.14.
+- Catch zone widened and centered on the visible pan so the whole pan catches oil, not one corner.
+- Pan remains low under the falling gear oil.
+- Stronger late-afternoon Florida sky gradient, larger sun/halo, and more visible clouds.
+- New shader-driven blue-green water with larger visible ripples, fresnel reflection, moving highlights, and warm sun glints.
+- Existing music/assets remain unchanged; do not re-upload them for this update.
