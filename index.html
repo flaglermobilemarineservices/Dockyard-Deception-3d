@@ -430,7 +430,7 @@
 /* v18.8: no top HUD + solid NPC collision + visible 3D oil-service assets */
 #hud{display:none!important}
 
-/* v18.9 — 2-player Rick/Gage + spark-plug service + 3-song playlist */
+/* v18.9.1 — multiplayer spawn/collision hotfix + spark-plug service + 3-song playlist */
 #multiBtn{position:absolute;left:12px;top:12px;z-index:21;border:1px solid rgba(126,231,255,.5);background:rgba(4,16,23,.78);color:#fff;border-radius:999px;padding:9px 12px;font-weight:1000;font-size:11px;cursor:pointer;backdrop-filter:blur(6px)}
 #multiBtn.connected{border-color:#78efac;color:#a8ffca;background:rgba(10,55,38,.82)}
 #multiOverlay{position:absolute;inset:0;z-index:140;display:none;place-items:center;background:rgba(0,0,0,.68);backdrop-filter:blur(7px);pointer-events:auto}
@@ -2577,7 +2577,32 @@ function setMultiStatus(t){multiStatus.textContent=t}
 function closeMultiplayer(){multiOverlay.classList.remove('show')}
 multiBtn.addEventListener('click',()=>multiOverlay.classList.add('show'));multiClose.addEventListener('click',closeMultiplayer);multiOverlay.addEventListener('pointerdown',e=>{if(e.target===multiOverlay)closeMultiplayer()});
 function cleanupMultiplayer(msg='Offline single-player • Gage uses NPC AI.'){try{multiplayer.conn?.close()}catch(e){}try{multiplayer.peer?.destroy()}catch(e){}multiplayer.peer=null;multiplayer.conn=null;multiplayer.connected=false;multiplayer.role='offline';multiplayer.room='';document.body.classList.remove('gage-player');multiBtn.textContent='2 PLAYER';multiBtn.classList.remove('connected');disconnectGameBtn.style.display='none';setMultiStatus(msg);gageState.target=null;gageStartIdle?.(clock.elapsedTime)}
-function sendWelcome(){if(!multiplayer.conn?.open||!gageNPC)return;multiplayer.conn.send({t:'welcome',x:gageNPC.position.x,y:gageNPC.position.y,z:gageNPC.position.z,yaw:gageNPC.rotation.y})}
+function getSafeGageJoinSpawn(){
+  // Rick starts near x=0,z=-27. The old Gage spawn at x=.72 was already inside the
+  // 1.05 collision radius, so both players could be born overlapping and become stuck.
+  const candidates=[
+    new THREE.Vector3(1.22,.18,-27),
+    new THREE.Vector3(-1.22,.18,-27),
+    new THREE.Vector3(.72,.18,-25.7),
+    new THREE.Vector3(.72,.18,-24.2)
+  ];
+  for(const p of candidates){
+    const y=getWalkSurfaceY(p.x,p.z);
+    if(y===null)continue;
+    const dx=p.x-controller.pos.x,dz=p.z-controller.pos.z;
+    if(dx*dx+dz*dz>1.35*1.35)return {x:p.x,y,z:p.z,yaw:Math.PI};
+  }
+  const p=gageNPC.position;
+  return {x:p.x,y:p.y,z:p.z,yaw:gageNPC.rotation.y};
+}
+function sendWelcome(){
+  if(!multiplayer.conn?.open||!gageNPC)return;
+  const spawn=getSafeGageJoinSpawn();
+  // Also seed the host's remote state so the visible Gage does not jump onto Rick
+  // while we wait for the guest's first network position packet.
+  multiplayer.remote.x=spawn.x;multiplayer.remote.y=spawn.y;multiplayer.remote.z=spawn.z;multiplayer.remote.yaw=spawn.yaw;
+  multiplayer.conn.send({t:'welcome',...spawn});
+}
 function setupConnection(conn){multiplayer.conn=conn;conn.on('open',()=>{multiplayer.connected=true;multiBtn.classList.add('connected');disconnectGameBtn.style.display='inline-block';if(multiplayer.role==='host'){multiBtn.textContent=`RICK • ${multiplayer.room}`;setMultiStatus(`GAGE CONNECTED ✓ • Room ${multiplayer.room}`);sendWelcome()}else{multiBtn.textContent='GAGE • CONNECTED';setMultiStatus(`CONNECTED AS GAGE ✓ • Room ${multiplayer.room}`);document.body.classList.add('gage-player')}setTimeout(closeMultiplayer,650)});conn.on('data',d=>{if(!d||typeof d!=='object')return;if(d.t==='welcome'&&isGuestPlayer()){controller.pos.set(d.x,d.y,d.z);controller.yaw=d.yaw||0;controller.groundY=d.y;return}if(d.t==='pos'){multiplayer.remote.x=d.x;multiplayer.remote.y=d.y;multiplayer.remote.z=d.z;multiplayer.remote.yaw=d.yaw;multiplayer.remote.moving=!!d.moving;multiplayer.remote.running=!!d.running;if(d.chas)multiplayer.remoteChas=d.chas}});conn.on('close',()=>cleanupMultiplayer('Other player disconnected • back to single-player.'));conn.on('error',()=>cleanupMultiplayer('Connection lost • back to single-player.'))}
 hostGameBtn.addEventListener('click',()=>{if(typeof Peer==='undefined'){setMultiStatus('Multiplayer library could not load. Make sure the game is online.');return}cleanupMultiplayer('Starting room…');const code=roomCode();multiplayer.role='host';multiplayer.room=code;setMultiStatus(`ROOM ${code} • Waiting for Gage…`);roomCodeInput.value=code;const peer=new Peer(`dockyard-${code.toLowerCase()}`);multiplayer.peer=peer;peer.on('open',()=>setMultiStatus(`ROOM ${code} • Waiting for Gage…`));peer.on('connection',conn=>{if(multiplayer.conn?.open){conn.close();return}setupConnection(conn)});peer.on('error',e=>cleanupMultiplayer(`Host error: ${e.type||'connection failed'}`))});
 joinGameBtn.addEventListener('click',()=>{if(typeof Peer==='undefined'){setMultiStatus('Multiplayer library could not load. Make sure the game is online.');return}const code=roomCodeInput.value.trim().toUpperCase();if(code.length<4){setMultiStatus('Enter Rick’s room code.');return}cleanupMultiplayer('Connecting…');multiplayer.role='guest';multiplayer.room=code;const peer=new Peer();multiplayer.peer=peer;peer.on('open',()=>{const conn=peer.connect(`dockyard-${code.toLowerCase()}`,{reliable:true});setupConnection(conn)});peer.on('error',e=>cleanupMultiplayer(`Join error: ${e.type||'connection failed'}`))});
@@ -3099,25 +3124,51 @@ function updateManateeYell(time){
 }
 
 // v18.8 — solid NPC collision. Rick can no longer walk through Gage or Chas.
-function collidesWithNPC(x,z,clearance=1.05){
+function controlledCollisionNPCs(){
   const npcs=[chasNPC];
+  // In multiplayer, the locally controlled character must collide with the OTHER player,
+  // never its own visible model. Host controls Rick; guest controls Gage.
   if(isGuestPlayer())npcs.push(actor);else npcs.push(gageNPC);
-  for(const npc of npcs){
-    if(!npc||npc.visible===false)continue;
+  return npcs.filter(n=>n&&n.visible!==false);
+}
+function collidesWithNPC(x,z,clearance=1.05){
+  for(const npc of controlledCollisionNPCs()){
     const dx=x-npc.position.x,dz=z-npc.position.z;
     if(dx*dx+dz*dz<clearance*clearance)return true;
   }
   return false;
 }
+function moveEscapesExistingOverlap(x0,z0,x1,z1,clearance=1.05){
+  // If two characters spawn/lag into each other's collision circles, do not trap them.
+  // Permit only movement that increases their separation until they are clear again.
+  let foundOverlap=false;
+  for(const npc of controlledCollisionNPCs()){
+    const oldDx=x0-npc.position.x,oldDz=z0-npc.position.z;
+    const newDx=x1-npc.position.x,newDz=z1-npc.position.z;
+    const oldD2=oldDx*oldDx+oldDz*oldDz;
+    const newD2=newDx*newDx+newDz*newDz;
+    if(oldD2<clearance*clearance){
+      foundOverlap=true;
+      if(newD2<=oldD2+.000001)return false;
+    }else if(newD2<clearance*clearance){
+      return false;
+    }
+  }
+  return foundOverlap;
+}
+function candidateMoveAllowed(x0,z0,x1,z1,clearance=1.05){
+  if(!collidesWithNPC(x1,z1,clearance))return true;
+  return moveEscapesExistingOverlap(x0,z0,x1,z1,clearance);
+}
 function tryMoveRickWithNPCCollision(nextX,nextZ){
   const x0=controller.pos.x,z0=controller.pos.z;
   let surfaceY=getWalkSurfaceY(nextX,nextZ);
-  if(surfaceY!==null&&!collidesWithNPC(nextX,nextZ))return {x:nextX,z:nextZ,y:surfaceY};
-  // Slide along an NPC instead of sticking completely when the joystick is diagonal.
+  if(surfaceY!==null&&candidateMoveAllowed(x0,z0,nextX,nextZ))return {x:nextX,z:nextZ,y:surfaceY};
+  // Slide along another character instead of sticking completely when the joystick is diagonal.
   surfaceY=getWalkSurfaceY(nextX,z0);
-  if(surfaceY!==null&&!collidesWithNPC(nextX,z0))return {x:nextX,z:z0,y:surfaceY};
+  if(surfaceY!==null&&candidateMoveAllowed(x0,z0,nextX,z0))return {x:nextX,z:z0,y:surfaceY};
   surfaceY=getWalkSurfaceY(x0,nextZ);
-  if(surfaceY!==null&&!collidesWithNPC(x0,nextZ))return {x:x0,z:nextZ,y:surfaceY};
+  if(surfaceY!==null&&candidateMoveAllowed(x0,z0,x0,nextZ))return {x:x0,z:nextZ,y:surfaceY};
   return null;
 }
 

@@ -1,0 +1,9 @@
+Dockyard Deception v18.9.1 multiplayer movement hotfix
+
+Upload index.html to the SAME GitHub repo root and replace the existing index.html.
+No other v18.9 asset packs need to be re-uploaded.
+
+Fixes:
+- Gage now spawns outside Rick's collision radius when joining multiplayer.
+- If network lag ever causes Rick/Gage to overlap, they can move apart instead of becoming trapped.
+- Rick/Gage remain solid and still cannot run through each other once separated.
