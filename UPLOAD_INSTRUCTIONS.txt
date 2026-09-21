@@ -1,18 +1,10 @@
-Dockyard Deception v18.16
+Dockyard Deception v18.17
 
-Upload BOTH files from this ZIP to the repo root and replace matching files:
-- index.html
-- loading_screen.webp
+Replace only index.html in the repo root.
 
 Changes:
-- Gear-oil pan kept at the v18.15 size but moved visibly lower under the drain stream.
-- New full-screen loading artwork.
-- Song routing is now state-based and songs loop to completion instead of auto-advancing:
-  Loading screen = boat_daddy_rick.mp3 (Song 1)
-  Normal gameplay = boat_daddy_rides.mp3 (Song 2)
-  Accept Job 1 = boat_daddy_rick_song3.mp3 (Song 3)
-  Finish Job 1/payday = back to Song 2
-- Upgraded Florida late-afternoon sky with stronger blue separation, warm sun haze and more dimensional clouds.
-- Upgraded blue-green water with larger rolling waves, fine wind ripples, stronger reflections and visible golden glints.
-
-Existing song files and other game assets do not need to be uploaded again.
+- Drain pan left at the v18.16 size/position.
+- Gear-oil drain point and stream moved much higher, with a longer stream that reaches the pan.
+- Loading-screen artwork is embedded directly inside index.html, so there is no separate image file to forget or fail to load.
+- Loading overlay lightened so the artwork is clearly visible.
+- Music routing and other gameplay remain unchanged from v18.16.
