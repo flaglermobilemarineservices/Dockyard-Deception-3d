@@ -1,10 +1,10 @@
-Dockyard Deception v18.17
+Dockyard Deception v18.19.1 — Gear Oil Spill Fix
 
 Replace only index.html in the repo root.
 
-Changes:
-- Drain pan left at the v18.16 size/position.
-- Gear-oil drain point and stream moved much higher, with a longer stream that reaches the pan.
-- Loading-screen artwork is embedded directly inside index.html, so there is no separate image file to forget or fail to load.
-- Loading overlay lightened so the artwork is clearly visible.
-- Music routing and other gameplay remain unchanged from v18.16.
+Fix:
+- Gear oil now keeps draining continuously even when the pan misses.
+- Missing oil visibly creates a growing dark spill.
+- Spill meter rises based on actual missed drain time.
+- 40% spilled oil fails the catch step.
+- The drain can only complete after the full oil-drain cycle finishes.
