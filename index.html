@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Dockyard Deception — v18.15 Water + Sky + Pan Pass</title>
+<title>Dockyard Deception — v18.16 Florida Water + Sky + Loading Music</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07121a;color:white;font-family:Inter,system-ui,Arial,sans-serif;touch-action:none}body{position:relative}
 #stage{position:absolute;inset:0}canvas{display:block;width:100%;height:100%}
 #hud{position:absolute;left:12px;top:12px;z-index:10;max-width:min(520px,calc(100% - 24px));pointer-events:none}
 .panel{background:rgba(4,16,23,.78);border:1px solid rgba(88,211,235,.45);backdrop-filter:blur(10px);border-radius:14px;padding:10px 12px;box-shadow:0 12px 35px rgba(0,0,0,.35)}
 .title{font-weight:1000;font-size:clamp(16px,3vw,24px);letter-spacing:.02em}.small{font-size:12px;color:#b8d4de;line-height:1.35}.status{margin-top:6px;font-weight:900;color:#7ee7ff}.badge{display:inline-block;margin-top:6px;padding:4px 8px;border-radius:999px;background:#173844;color:#d9f7ff;font-size:11px;font-weight:900}
-#loader{position:absolute;inset:0;z-index:50;display:grid;place-items:center;background:linear-gradient(180deg,#07131b,#0a1d28)}#loaderCard{width:min(560px,90vw);text-align:center;padding:24px}.bar{height:12px;border-radius:99px;background:#031017;border:1px solid #345d69;overflow:hidden;margin-top:12px}.bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#46d7f0,#70efb1);transition:width .2s}.loadMsg{margin-top:10px;color:#c4dce5;font-size:13px}.error{color:#ff9d9d}
+#loader{position:absolute;inset:0;z-index:50;display:grid;place-items:end center;padding:0 16px max(30px,env(safe-area-inset-bottom));background:#07131b url('loading_screen.webp') center/cover no-repeat;overflow:hidden}#loader:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,10,15,.06) 18%,rgba(3,11,17,.18) 52%,rgba(3,10,15,.88) 100%);pointer-events:none}#loaderCard{position:relative;z-index:1;width:min(620px,92vw);text-align:center;padding:16px 20px;background:rgba(3,15,22,.72);border:1px solid rgba(145,232,255,.46);box-shadow:0 16px 50px rgba(0,0,0,.48);backdrop-filter:blur(8px)}#loaderCard:after{content:"TAP ANYWHERE FOR MUSIC";display:block;margin-top:7px;font-size:10px;font-weight:900;letter-spacing:.13em;color:rgba(218,246,255,.72)}.bar{height:10px;border-radius:99px;background:#031017;border:1px solid #345d69;overflow:hidden;margin-top:10px}.bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#46d7f0,#70efb1);transition:width .2s}.loadMsg{margin-top:8px;color:#d8edf4;font-size:12px}.error{color:#ff9d9d}
 #tips{position:absolute;right:12px;top:12px;z-index:9;max-width:340px;pointer-events:none;display:none}.key{display:inline-grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border-radius:6px;background:#eef8fb;color:#0b1b23;font-weight:1000;margin:2px;font-size:11px}
 #mobile{position:absolute;inset:0;z-index:15;pointer-events:none;display:none}.joyBase{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(20px,env(safe-area-inset-bottom));width:138px;height:138px;border-radius:50%;border:2px solid rgba(255,255,255,.28);background:rgba(4,15,22,.32);pointer-events:auto;touch-action:none}.joyKnob{position:absolute;left:45px;top:45px;width:48px;height:48px;border-radius:50%;background:rgba(103,231,255,.8);border:2px solid white;box-shadow:0 4px 18px rgba(0,0,0,.35)}#joyRight{left:auto;right:max(18px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom))}#joyRight .joyKnob{background:rgba(255,176,103,.82)}
 .actionGrid{position:absolute;right:max(8px,env(safe-area-inset-right));bottom:calc(max(20px,env(safe-area-inset-bottom)) + 154px);width:112px;display:grid;grid-template-columns:1fr;gap:8px;pointer-events:auto}.minimalActions .act{min-height:46px;opacity:.62;backdrop-filter:blur(5px)}.minimalActions .act.trick{min-height:36px;opacity:.48;font-size:10px}.minimalActions .act:active{opacity:.95}.act{min-height:50px;border:1px solid rgba(255,255,255,.35);border-radius:12px;background:rgba(8,26,36,.78);color:#fff;font-weight:1000;font-size:11px;padding:6px}.act.primary{background:rgba(40,169,198,.88)}.act:active{transform:scale(.96);filter:brightness(1.25)}
@@ -949,7 +949,8 @@ const boatDaddyRides=document.getElementById('boatDaddyRides');
 const boatDaddySong3=document.getElementById('boatDaddySong3');
 const musicCtl=document.getElementById('musicCtl');
 const musicPlaylist=[boatDaddyMusic,boatDaddyRides,boatDaddySong3];
-let musicIndex=0,musicWanted=true,musicStarted=false,musicVolume=.58,musicUnlocking=false;
+const MUSIC_SCENES={loading:0,gameplay:1,job1:2};
+let musicIndex=MUSIC_SCENES.loading,musicScene='loading',musicWanted=true,musicStarted=false,musicVolume=.58,musicUnlocking=false;
 function currentMusic(){return musicPlaylist[musicIndex]}
 function setMusicVolume(v){musicVolume=v;musicPlaylist.forEach(a=>a.volume=v)}
 function stopOtherMusic(keep){musicPlaylist.forEach(a=>{if(a!==keep){a.pause();}})}
@@ -959,51 +960,34 @@ async function playMusicIndex(i,reset=false){
   if(reset){try{a.currentTime=0}catch(e){}}
   setMusicVolume(musicVolume);
   if(!musicWanted)return false;
-  try{
-    await a.play();
-    musicStarted=true;
-    musicCtl.textContent='MUSIC: ON';
-    return true;
-  }catch(e){
-    musicStarted=false;
-    musicCtl.textContent='TAP MUSIC';
-    return false;
-  }
+  try{await a.play();musicStarted=true;musicCtl.textContent='MUSIC: ON';return true}
+  catch(e){musicStarted=false;musicCtl.textContent='TAP MUSIC';return false}
+}
+async function setMusicScene(sceneName,reset=true){
+  musicScene=sceneName in MUSIC_SCENES?sceneName:'gameplay';
+  const next=MUSIC_SCENES[musicScene];
+  if(next===musicIndex&&musicStarted&&!reset)return true;
+  return playMusicIndex(next,reset);
 }
 musicPlaylist.forEach((a,i)=>{
-  a.loop=false;a.preload='auto';a.playsInline=true;
-  a.addEventListener('ended',()=>{
-    if(i!==musicIndex||!musicWanted)return;
-    const d=Number(a.duration),t=Number(a.currentTime);
-    // Never advance on a bogus mobile "ended" event before the real end of the file.
-    if(Number.isFinite(d)&&d>1&&Number.isFinite(t)&&t<d-.20){
-      try{a.currentTime=Math.max(0,t-.02);a.play()}catch(e){}
-      return;
-    }
-    playMusicIndex((i+1)%musicPlaylist.length,true);
-  });
-  a.addEventListener('error',()=>{
-    if(i===musicIndex){musicStarted=false;musicCtl.textContent='TAP MUSIC';}
-  });
+  // Scene tracks loop themselves. They NEVER advance to another song on their own.
+  a.loop=true;a.preload='auto';a.playsInline=true;
+  a.addEventListener('error',()=>{if(i===musicIndex){musicStarted=false;musicCtl.textContent='TAP MUSIC'}});
 });
 setMusicVolume(.58);
 async function startMusicFromGesture(){
   if(!musicWanted||musicStarted||musicUnlocking)return;
-  musicUnlocking=true;
-  // Mobile browsers can reject the first attempt while the page is still settling.
-  // Keep the gesture listeners alive until a track actually starts.
-  await playMusicIndex(musicIndex,false);
-  musicUnlocking=false;
+  musicUnlocking=true;await playMusicIndex(musicIndex,false);musicUnlocking=false;
 }
 function musicGestureRetry(){if(musicWanted&&!musicStarted)startMusicFromGesture()}
 musicCtl.addEventListener('click',async e=>{
   e.stopPropagation();
-  if(!musicStarted&&musicWanted){await startMusicFromGesture();return;}
+  if(!musicStarted&&musicWanted){await startMusicFromGesture();return}
   musicWanted=!musicWanted;
   if(musicWanted){musicCtl.textContent='MUSIC: ON';await playMusicIndex(musicIndex,false)}
   else{musicPlaylist.forEach(a=>a.pause());musicStarted=false;musicCtl.textContent='MUSIC: OFF'}
 });
-// Keep retrying on genuine user gestures until audio is actually unlocked.
+// A tap while the loading artwork is visible unlocks Song 1 on mobile.
 addEventListener('pointerdown',musicGestureRetry,{passive:true});
 addEventListener('touchstart',musicGestureRetry,{passive:true});
 addEventListener('keydown',musicGestureRetry);
@@ -1033,112 +1017,123 @@ const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.05,220);
 scene.add(camera);
 const clock=new THREE.Clock();
 
-// v18.15 — noticeably stronger Florida late-afternoon sky.
-const skyGeo=new THREE.SphereGeometry(180,36,24);
+// v18.16 — stronger Florida late-afternoon sky with a clearer horizon, sun haze and richer color separation.
+const skyGeo=new THREE.SphereGeometry(190,40,28);
+const skyUniforms={
+  uTime:{value:0},
+  topColor:{value:new THREE.Color(0x2277bd)},
+  midColor:{value:new THREE.Color(0x63bce6)},
+  horizonColor:{value:new THREE.Color(0xbfe7ef)},
+  warmColor:{value:new THREE.Color(0xffcb8c)}
+};
 const skyMat=new THREE.ShaderMaterial({
-  side:THREE.BackSide,
-  depthWrite:false,
-  uniforms:{
-    topColor:{value:new THREE.Color(0x2f75b8)},
-    midColor:{value:new THREE.Color(0x63b4df)},
-    horizonColor:{value:new THREE.Color(0xffcf91)},
-    lowColor:{value:new THREE.Color(0xe99d72)}
-  },
+  side:THREE.BackSide,depthWrite:false,uniforms:skyUniforms,
   vertexShader:`varying vec3 vWorld;void main(){vec4 w=modelMatrix*vec4(position,1.0);vWorld=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
-  fragmentShader:`varying vec3 vWorld;uniform vec3 topColor;uniform vec3 midColor;uniform vec3 horizonColor;uniform vec3 lowColor;
+  fragmentShader:`varying vec3 vWorld;uniform float uTime;uniform vec3 topColor,midColor,horizonColor,warmColor;
   void main(){
-    float h=normalize(vWorld).y;
-    vec3 c;
-    if(h>.34)c=mix(midColor,topColor,smoothstep(.34,.96,h));
-    else if(h>-.035)c=mix(horizonColor,midColor,smoothstep(-.035,.34,h));
-    else c=mix(lowColor,horizonColor,smoothstep(-.31,-.035,h));
-    float glow=exp(-pow((h+.015)/.095,2.0));
-    c+=vec3(.115,.050,.012)*glow;
+    vec3 d=normalize(vWorld-cameraPosition);
+    float h=d.y;
+    float t=smoothstep(-.08,.88,h);
+    vec3 c=mix(horizonColor,midColor,smoothstep(.00,.32,h));
+    c=mix(c,topColor,smoothstep(.30,.92,h));
+    // Warm late-afternoon haze concentrated near the sun side instead of making the whole sky orange.
+    vec3 sdir=normalize(vec3(-.38,.18,-.91));
+    float sd=max(dot(d,sdir),0.0);
+    float horizon=exp(-pow((h-.015)/.12,2.0));
+    float warm=horizon*pow(sd,5.0);
+    c=mix(c,warmColor,clamp(warm*.58,0.0,.58));
+    float sunHalo=pow(sd,38.0)*(1.0-smoothstep(.42,.75,h));
+    c+=vec3(1.0,.58,.25)*sunHalo*.18;
+    // Very subtle high-altitude streaks keep the dome from looking like a flat gradient.
+    float streak=(sin(d.x*24.0+d.z*17.0+uTime*.012)+sin(d.x*41.0-d.z*13.0-uTime*.008))*0.5;
+    streak=smoothstep(.72,1.0,streak)*smoothstep(.04,.22,h)*(1.0-smoothstep(.50,.78,h));
+    c=mix(c,vec3(.93,.98,1.0),streak*.10);
     gl_FragColor=vec4(c,1.0);
   }`
 });
 const skyDome=new THREE.Mesh(skyGeo,skyMat);scene.add(skyDome);
 
-// Warmer directional light and clearer blue fill so the sky/water pass reads immediately.
-scene.add(new THREE.HemisphereLight(0xe3f5ff,0x24434a,1.86));
-const sun=new THREE.DirectionalLight(0xffc77c,3.95);sun.position.set(-28,19,-34);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-36;sun.shadow.camera.right=36;sun.shadow.camera.top=36;sun.shadow.camera.bottom=-36;scene.add(sun);
-scene.add(new THREE.AmbientLight(0x78a9c3,.52));
+// Brighter blue ambient fill + warm sun. Less fog so the water color stays visible instead of washing gray.
+scene.fog=new THREE.FogExp2(0x9bc9d7,.00255);
+renderer.toneMappingExposure=1.26;
+scene.add(new THREE.HemisphereLight(0xeaf8ff,0x204852,2.06));
+const sun=new THREE.DirectionalLight(0xffc978,4.25);sun.position.set(-28,20,-34);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-36;sun.shadow.camera.right=36;sun.shadow.camera.top=36;sun.shadow.camera.bottom=-36;scene.add(sun);
+scene.add(new THREE.AmbientLight(0x76aac6,.48));
 
-// v18.15 water shader: visible rolling ripples, depth color, fresnel sky reflection and moving sun glints.
-const waterGeo=new THREE.PlaneGeometry(170,170,72,72);waterGeo.rotateX(-Math.PI/2);
+// v18.16 water: larger rolling surface + fine wind ripples + stronger Fresnel and broken golden highlights.
+const waterGeo=new THREE.PlaneGeometry(175,175,84,84);waterGeo.rotateX(-Math.PI/2);
 const waterUniforms={
   uTime:{value:0},
-  deepColor:{value:new THREE.Color(0x07576b)},
-  midColor:{value:new THREE.Color(0x118ca0)},
-  brightColor:{value:new THREE.Color(0x56c5cb)},
-  skyColor:{value:new THREE.Color(0x8cd4ec)},
-  sunColor:{value:new THREE.Color(0xffd39a)}
+  deepColor:{value:new THREE.Color(0x034f67)},
+  midColor:{value:new THREE.Color(0x0789a1)},
+  brightColor:{value:new THREE.Color(0x36bfd0)},
+  skyColor:{value:new THREE.Color(0x9bdced)},
+  sunColor:{value:new THREE.Color(0xffd08b)}
 };
 const waterMat=new THREE.ShaderMaterial({
-  side:THREE.DoubleSide,
-  uniforms:waterUniforms,
+  side:THREE.DoubleSide,uniforms:waterUniforms,
   vertexShader:`
-    uniform float uTime;
-    varying vec3 vWorld;
-    varying vec3 vN;
-    varying float vWave;
+    uniform float uTime;varying vec3 vWorld;varying vec3 vN;varying float vWave;
     void main(){
-      vec3 p=position;
-      float t=uTime;
-      float w1=sin(p.x*.34+t*.90)*.060;
-      float w2=sin(p.z*.29-t*.72+1.2)*.045;
-      float w3=sin((p.x+p.z)*.18+t*1.22)*.030;
-      float w4=sin((p.x-p.z)*.76-t*1.68)*.012;
+      vec3 p=position;float t=uTime;
+      float w1=sin(p.x*.29+t*.82)*.078;
+      float w2=sin(p.z*.25-t*.66+1.4)*.060;
+      float w3=sin((p.x+p.z)*.17+t*1.05)*.042;
+      float w4=sin((p.x-p.z)*.54-t*1.42)*.020;
       p.y+=w1+w2+w3+w4;
-      float dx=cos(p.x*.34+t*.90)*.0204 + cos((p.x+p.z)*.18+t*1.22)*.0054 + cos((p.x-p.z)*.76-t*1.68)*.00912;
-      float dz=cos(p.z*.29-t*.72+1.2)*.01305 + cos((p.x+p.z)*.18+t*1.22)*.0054 - cos((p.x-p.z)*.76-t*1.68)*.00912;
+      float dx=cos(p.x*.29+t*.82)*.0226 + cos((p.x+p.z)*.17+t*1.05)*.0071 + cos((p.x-p.z)*.54-t*1.42)*.0108;
+      float dz=cos(p.z*.25-t*.66+1.4)*.0150 + cos((p.x+p.z)*.17+t*1.05)*.0071 - cos((p.x-p.z)*.54-t*1.42)*.0108;
       vec3 n=normalize(vec3(-dx,1.0,-dz));
-      vec4 world=modelMatrix*vec4(p,1.0);
-      vWorld=world.xyz;
-      vN=normalize(mat3(modelMatrix)*n);
-      vWave=.5+.5*sin(p.x*.30+p.z*.22+t*.78);
-      gl_Position=projectionMatrix*viewMatrix*world;
+      vec4 world=modelMatrix*vec4(p,1.0);vWorld=world.xyz;vN=normalize(mat3(modelMatrix)*n);
+      vWave=.5+.5*sin(p.x*.22+p.z*.19+t*.72);gl_Position=projectionMatrix*viewMatrix*world;
     }`,
   fragmentShader:`
-    uniform float uTime;
-    uniform vec3 deepColor,midColor,brightColor,skyColor,sunColor;
-    varying vec3 vWorld;
-    varying vec3 vN;
-    varying float vWave;
+    uniform float uTime;uniform vec3 deepColor,midColor,brightColor,skyColor,sunColor;
+    varying vec3 vWorld;varying vec3 vN;varying float vWave;
     void main(){
       vec3 n=normalize(vN);
+      // Fine wind chop rides on top of the larger geometry waves.
+      float ax=vWorld.x*1.55+vWorld.z*.34+uTime*1.38;
+      float az=vWorld.z*1.86-vWorld.x*.47-uTime*1.16;
+      float bx=(vWorld.x+vWorld.z)*2.65+uTime*1.82;
+      vec3 micro=normalize(vec3(cos(ax)*.115+cos(bx)*.052,1.0,cos(az)*.105+cos(bx)*.052));
+      n=normalize(mix(n,micro,.43));
       vec3 viewDir=normalize(cameraPosition-vWorld);
-      float fres=pow(1.0-clamp(dot(n,viewDir),0.0,1.0),2.15);
-      vec3 sunDir=normalize(vec3(-.38,.79,-.48));
-      float spec=pow(max(dot(reflect(-sunDir,n),viewDir),0.0),62.0);
-      float fine=.5+.5*sin(vWorld.x*1.25-vWorld.z*.92+uTime*2.05);
-      float cross=.5+.5*sin(vWorld.x*.58+vWorld.z*1.32-uTime*1.62+1.4);
-      float crest=smoothstep(.73,.98,fine*.55+cross*.45);
-      float spark=pow(max(0.0,fine*cross),9.0);
-      vec3 c=mix(deepColor,midColor,.48+.16*vWave);
-      c=mix(c,brightColor,crest*.19);
-      c=mix(c,skyColor,.16+.44*fres);
-      c+=sunColor*(spec*.92+spark*.075);
+      float fres=pow(1.0-clamp(dot(n,viewDir),0.0,1.0),1.65);
+      vec3 sunDir=normalize(vec3(-.40,.76,-.50));
+      float specWide=pow(max(dot(reflect(-sunDir,n),viewDir),0.0),28.0);
+      float specSharp=pow(max(dot(reflect(-sunDir,n),viewDir),0.0),105.0);
+      float ripple=.5+.5*sin(vWorld.x*2.35-vWorld.z*1.72+uTime*2.10);
+      float ripple2=.5+.5*sin(vWorld.x*1.15+vWorld.z*2.62-uTime*1.72+1.2);
+      float crest=smoothstep(.73,.98,ripple*.55+ripple2*.45);
+      float shimmer=pow(max(0.0,ripple*ripple2),11.0);
+      vec3 c=mix(deepColor,midColor,.50+.18*vWave);
+      c=mix(c,brightColor,crest*.24);
+      c=mix(c,skyColor,.20+.50*fres);
+      c+=sunColor*(specWide*.31+specSharp*1.05+shimmer*.095);
+      // A soft turquoise lift near flatter faces makes the marina water visibly blue-green from gameplay height.
+      c+=vec3(.00,.065,.075)*(1.0-fres);
       gl_FragColor=vec4(c,1.0);
     }`
 });
 const water=new THREE.Mesh(waterGeo,waterMat);water.position.y=-.42;water.receiveShadow=true;scene.add(water);
 
-// Warm broken-up reflection lane instead of a flat stripe.
+// Wider broken-up sun path so the reflection is visible from more camera angles.
 const reflectionUniforms={uTime:{value:0}};
 const reflectionMat=new THREE.ShaderMaterial({
   transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:reflectionUniforms,
   vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
   fragmentShader:`uniform float uTime;varying vec2 vUv;void main(){
-    float edge=1.0-smoothstep(.05,.50,abs(vUv.x-.5));
-    float tail=smoothstep(.02,.18,vUv.y)*(1.0-smoothstep(.78,1.0,vUv.y));
-    float bands=.42+.58*(.5+.5*sin(vUv.y*83.0+uTime*2.25+sin(vUv.y*19.0)*2.0));
-    float a=edge*tail*(.055+.15*bands);
-    gl_FragColor=vec4(1.0,.55,.24,a);
+    float edge=1.0-smoothstep(.035,.50,abs(vUv.x-.5));
+    float tail=smoothstep(.01,.15,vUv.y)*(1.0-smoothstep(.82,1.0,vUv.y));
+    float bands=.35+.65*(.5+.5*sin(vUv.y*96.0+uTime*2.05+sin(vUv.y*22.0)*2.7));
+    float broken=.45+.55*(.5+.5*sin(vUv.x*31.0-vUv.y*17.0-uTime*.9));
+    float a=edge*tail*(.075+.205*bands*broken);
+    gl_FragColor=vec4(1.0,.63,.31,a);
   }`
 });
-const sunsetReflection=new THREE.Mesh(new THREE.PlaneGeometry(9.0,82),reflectionMat);
-sunsetReflection.rotation.x=-Math.PI/2;sunsetReflection.position.set(-8,-.392,-17);sunsetReflection.rotation.z=.055;scene.add(sunsetReflection);
+const sunsetReflection=new THREE.Mesh(new THREE.PlaneGeometry(12.0,88),reflectionMat);
+sunsetReflection.rotation.x=-Math.PI/2;sunsetReflection.position.set(-9,-.390,-18);sunsetReflection.rotation.z=.045;scene.add(sunsetReflection);
 
 // Procedural Florida-style marina dock.
 // Built from lightweight repeated geometry instead of a giant AI dock mesh.
@@ -1438,25 +1433,30 @@ sunHalo.position.copy(sunGlow.position);scene.add(sunHalo);
 const sunDisc=new THREE.Mesh(new THREE.SphereGeometry(2.35,28,18),new THREE.MeshBasicMaterial({color:0xfff2c0}));
 sunDisc.position.set(-31,10.5,-71.4);scene.add(sunDisc);
 
-// Soft procedural clouds — no image files, very light on mobile.
-function makeCloudTexture(){
-  const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');
-  x.clearRect(0,0,256,128);
-  const puffs=[[54,72,46],[90,57,52],[132,66,58],[174,58,46],[205,76,37],[113,82,68]];
+// Layered Florida cumulus clouds — still procedural/lightweight, but with actual shaded undersides.
+function makeCloudTexture(shadow=false){
+  const c=document.createElement('canvas');c.width=320;c.height=160;const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);
+  const puffs=[[58,98,54],[103,73,65],[157,80,72],[211,70,58],[260,96,48],[145,108,78]];
   for(const [cx,cy,r] of puffs){
-    const g=x.createRadialGradient(cx,cy,r*.12,cx,cy,r);
-    g.addColorStop(0,'rgba(255,255,255,.72)');g.addColorStop(.55,'rgba(250,252,255,.42)');g.addColorStop(1,'rgba(255,255,255,0)');
-    x.fillStyle=g;x.beginPath();x.arc(cx,cy,r,0,Math.PI*2);x.fill();
+    const g=x.createRadialGradient(cx,cy,r*.08,cx,cy,r);
+    if(shadow){g.addColorStop(0,'rgba(78,105,122,.48)');g.addColorStop(.55,'rgba(101,129,144,.26)');}
+    else{g.addColorStop(0,'rgba(255,255,255,.94)');g.addColorStop(.48,'rgba(252,254,255,.70)');}
+    g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.beginPath();x.arc(cx,cy,r,0,Math.PI*2);x.fill();
   }
   const t=new THREE.CanvasTexture(c);t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.generateMipmaps=false;return t;
 }
-const cloudTexture=makeCloudTexture();
+const cloudTexture=makeCloudTexture(false),cloudShadowTexture=makeCloudTexture(true);
 const cloudGroup=new THREE.Group();scene.add(cloudGroup);
 [
-  [-66,24,-86,34,12,.58],[-31,32,-102,40,14,.49],[12,28,-99,34,12,.54],[55,23,-80,31,11,.48],
-  [-88,18,-30,36,12,.45],[85,25,10,33,11,.43],[-54,30,73,39,13,.46],[38,24,86,35,12,.43],
-  [-6,18,-70,25,9,.42],[71,17,53,27,9,.38],[-74,13,42,29,9,.36],[8,36,57,30,10,.34]
-].forEach(([x,y,z,w,h,o],i)=>{const m=new THREE.SpriteMaterial({map:cloudTexture,transparent:true,opacity:o,depthWrite:false,color:i%3===0?0xfff7ec:0xffffff});const sp=new THREE.Sprite(m);sp.position.set(x,y,z);sp.scale.set(w,h,1);cloudGroup.add(sp)});
+  [-68,23,-88,40,14,.72],[-31,31,-104,47,16,.65],[14,27,-101,40,14,.70],[57,22,-82,38,13,.63],
+  [-91,17,-34,42,14,.60],[88,24,7,39,13,.58],[-55,29,74,45,15,.62],[41,23,88,41,14,.57],
+  [-7,18,-70,31,11,.58],[73,17,54,33,11,.53],[-76,14,43,34,11,.50],[10,35,59,35,12,.48]
+].forEach(([x,y,z,w,h,o],i)=>{
+  const sm=new THREE.SpriteMaterial({map:cloudShadowTexture,transparent:true,opacity:o*.56,depthWrite:false,color:0xb4c7ce});
+  const sh=new THREE.Sprite(sm);sh.position.set(x+1.3,y-.85,z+.35);sh.scale.set(w*1.03,h*.92,1);cloudGroup.add(sh);
+  const m=new THREE.SpriteMaterial({map:cloudTexture,transparent:true,opacity:o,depthWrite:false,color:i%3===0?0xfff8ef:0xffffff});
+  const sp=new THREE.Sprite(m);sp.position.set(x,y,z);sp.scale.set(w,h,1);cloudGroup.add(sp);
+});
 
 // Irregular Florida shoreline on the east side: low profile, not a giant box.
 const shoreMat=new THREE.MeshStandardMaterial({color:0x557a49,roughness:.98,metalness:0});
@@ -2132,7 +2132,7 @@ function initGearOilPan3D(){
     gltfLoader.load('gear_oil_pan.glb',g=>{
       fitGearPanModel(g.scene,1.58);g.scene.scale.x*=1.48;g.scene.scale.y*=.40;g.scene.scale.z*=.74;
       g.scene.traverse(o=>{if(o.isMesh&&o.material){const mats=Array.isArray(o.material)?o.material:[o.material];o.material=mats.map(m=>{const c=m.clone();if(c.color)c.color.set(0x090b0d);if('metalness' in c)c.metalness=Math.max(.18,c.metalness||0);if('roughness' in c)c.roughness=.72;return c});if(o.material.length===1)o.material=o.material[0]}});
-      const wrap=new THREE.Group();wrap.add(g.scene);/* broad X/Z opening faces +Y: flat/open side UP */wrap.rotation.set(0,.04,0);wrap.position.set(0,-1.00,.12);scene3.add(wrap);
+      const wrap=new THREE.Group();wrap.add(g.scene);/* broad X/Z opening faces +Y: flat/open side UP */wrap.rotation.set(0,.04,0);wrap.position.set(0,-1.28,.12);scene3.add(wrap);
       gearOilPan3d.model=wrap;gearOilPan3d.ready=true;gearOilPan3d.loading=false;resizeGearOilPan3D();
     },undefined,()=>{gearOilPan3d.loading=false;});
   }catch(e){gearOilPan3d.loading=false;}
@@ -2143,7 +2143,7 @@ function resizeGearOilPan3D(){
   gearOilPan3d.renderer.setSize(w,h,false);
   const a=w/h;
   gearOilPan3d.camera.left=-2.55*a;gearOilPan3d.camera.right=2.55*a;
-  gearOilPan3d.camera.top=1.32;gearOilPan3d.camera.bottom=-1.32;
+  gearOilPan3d.camera.top=1.05;gearOilPan3d.camera.bottom=-1.60;
   gearOilPan3d.camera.updateProjectionMatrix();
 }
 function updateGearOilPan3D(){
@@ -2152,7 +2152,7 @@ function updateGearOilPan3D(){
   // Map the model center 1:1 to the panX screen coordinate so the visible pan and catch zone agree.
   gearOilPan3d.model.position.x=(serviceState.panX-.5)*(5.10*a);
   // Keep the opening down near the bottom of the falling stream.
-  gearOilPan3d.model.position.y=-1.00;
+  gearOilPan3d.model.position.y=-1.28;
 }
 function startGearOilPan3DLoop(){
   if(gearOilPan3d.loop)return;const tick=()=>{gearOilPan3d.loop=0;if(serviceState.step!=='catch'||oilCatchGame.style.display==='none')return;resizeGearOilPan3D();updateGearOilPan3D();if(gearOilPan3d.renderer&&gearOilPan3d.scene&&gearOilPan3d.camera)gearOilPan3d.renderer.render(gearOilPan3d.scene,gearOilPan3d.camera);gearOilPan3d.loop=requestAnimationFrame(tick)};gearOilPan3d.loop=requestAnimationFrame(tick);
@@ -2852,6 +2852,7 @@ function finishPaydayCutscene(){
   try{paydayCutsceneVideo.pause()}catch(e){}
   paydayCutsceneOverlay.style.display='none';
   setMusicVolume(.58);
+  setMusicScene('gameplay',true);
   grantFirstJobPayday();
   showMoneyExplainer();
   setTimeout(()=>{paydayFinishing=false},300);
@@ -2990,6 +2991,7 @@ function resolveCustomerCall(accepted){
   if(!callState.active) return;
   callState.active=false;
   callState.accepted=accepted;
+  if(accepted)setMusicScene('job1',true);
   drawPhoneScreen(accepted?'accepted':'declined');
   jobBadge.textContent=accepted?'ANNUAL SERVICE ACCEPTED':'CALL DECLINED • NO PAY';
   animStatus.textContent=accepted?'Annual service accepted':'First job declined — another call is coming';
@@ -3202,7 +3204,7 @@ async function loadAll(){try{
  progress('Phone ready');
 
  mixer.addEventListener('finished',e=>{if(controller.special && e.action===currentAction){if(controller.specialName==='turn')controller.yaw-=Math.PI/2;controller.special=false;controller.specialName='';play('idle',{fade:.12})}});
- loaderUI.style.display='none';animStatus.textContent='Animation: IDLE'; updateTrainingHUD();
+ loaderUI.style.display='none';setMusicScene('gameplay',true);animStatus.textContent='Animation: IDLE'; updateTrainingHUD();
 }catch(err){console.error(err);loadMsg.classList.add('error');loadMsg.textContent='Could not load Rick: '+err.message+' — make sure you are online so Three.js can load.'}}
 loadAll();
 
@@ -3527,6 +3529,7 @@ function tryMoveRickWithNPCCollision(nextX,nextZ){
 function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.034);const time=clock.elapsedTime;
  updateManateeYell(time);
  // v18.15 — shader-driven water is more visible and cheaper than rebuilding normals every frame.
+ skyUniforms.uTime.value=time;
  waterUniforms.uTime.value=time;
  reflectionUniforms.uTime.value=time;
  cloudGroup.position.x=Math.sin(time*.018)*1.8;
@@ -3685,5 +3688,5 @@ animate();
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.75))});
 </script>
-<!-- Dockyard Deception v18.15: medium gear-oil pan + wider catch zone + stronger shader water/sky -->
+<!-- Dockyard Deception v18.16: lower pan + loading art + scene-based music + upgraded Florida water/sky -->
 </body></html>
