@@ -1,10 +1,13 @@
-Dockyard Deception v18.7 — Chas NPC + Clean HUD
+Dockyard Deception v18.10 UI + Gear Pan + 6 Plugs + Cash
+
+This update goes on top of v18.9.2 / v18.9 assets.
+Upload index.html to the GitHub repo root and replace the existing index.html.
+No GLB, music, or other asset files need to be uploaded again.
 
 Changes:
-- Added Chas as an ambient dock NPC using the supplied Meshy walk and idle animations.
-- Chas wanders the safe dock graph, pauses naturally, avoids Rick and Gage, and is tagged for reuse as a future client.
-- Removed the old top-left training/step/status box from view.
-- Keeps the full v18.6 3D engine-oil service.
-
-Upload every file in the full package to the repo root, replacing matching files.
-For an existing v18.6 install, the update package only needs index.html, chas_walk.glb, chas_idle.glb.
+- Gear-oil pan is larger, lower under the draining oil, black, and has a wider catch area.
+- Spark-plug service now runs through six plugs.
+- Completing all six plugs finishes the job and pays $300.
+- Persistent CASH meter added on screen; host cash also syncs to Gage in multiplayer.
+- Full-screen control is now a tiny icon instead of a large EXIT FULL SCREEN prompt.
+- Job instruction cards and spark instruction header are smaller.

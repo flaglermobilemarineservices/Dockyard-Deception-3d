@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Dockyard Deception — v18.9 Two Player + Spark Plugs</title>
+<title>Dockyard Deception — v18.10 Six Plugs + Cash + UI Polish</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07121a;color:white;font-family:Inter,system-ui,Arial,sans-serif;touch-action:none}body{position:relative}
 #stage{position:absolute;inset:0}canvas{display:block;width:100%;height:100%}
@@ -49,13 +49,14 @@
 
 
 #fullscreenBtn{
-  position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
-  z-index:120;min-width:170px;min-height:48px;padding:12px 20px;
-  border-radius:999px;border:1px solid rgba(160,235,255,.78);
-  background:rgba(3,20,30,.88);color:#fff;font:900 15px/1 system-ui,sans-serif;
-  letter-spacing:.04em;box-shadow:0 8px 28px rgba(0,0,0,.35);touch-action:manipulation
+  position:absolute;left:50%;bottom:8px;transform:translateX(-50%);
+  z-index:120;width:38px;height:38px;min-width:0;min-height:0;padding:0;
+  border-radius:50%;border:1px solid rgba(160,235,255,.58);
+  background:rgba(3,20,30,.64);color:#fff;font:900 18px/1 system-ui,sans-serif;
+  box-shadow:0 5px 18px rgba(0,0,0,.28);touch-action:manipulation;opacity:.62
 }
-#fullscreenBtn:active{transform:translateX(-50%) scale(.97)}
+#fullscreenBtn:active{transform:translateX(-50%) scale(.94);opacity:1}
+#fullscreenBtn:hover{opacity:.9}
 
 
 #serviceOverlay{
@@ -64,18 +65,18 @@
 }
 #serviceOverlay.active{display:block}
 #serviceCard{
-  position:absolute;left:50%;top:11px;bottom:auto;transform:translateX(-50%);
-  width:min(540px,88vw);padding:11px 13px 10px;border-radius:15px;
-  background:rgba(4,19,29,.93);border:1px solid rgba(151,231,255,.58);
-  box-shadow:0 14px 45px rgba(0,0,0,.48);pointer-events:auto;text-align:center;
+  position:absolute;left:50%;top:8px;bottom:auto;transform:translateX(-50%);
+  width:min(430px,74vw);padding:7px 10px 7px;border-radius:12px;
+  background:rgba(4,19,29,.90);border:1px solid rgba(151,231,255,.50);
+  box-shadow:0 10px 32px rgba(0,0,0,.42);pointer-events:auto;text-align:center;
 }
-#serviceTitle{font-size:clamp(17px,4vw,27px);font-weight:1000;letter-spacing:.025em}
-#serviceText{margin-top:5px;font-size:clamp(12px,2.4vw,15px);line-height:1.35;color:#d6edf4}
-#serviceProgress{margin-top:7px;font-size:12px;font-weight:900;color:#8eeaff;letter-spacing:.05em}
+#serviceTitle{font-size:clamp(14px,2.8vw,20px);font-weight:1000;letter-spacing:.02em}
+#serviceText{margin-top:3px;font-size:clamp(10px,1.9vw,13px);line-height:1.25;color:#d6edf4}
+#serviceProgress{margin-top:4px;font-size:10px;font-weight:900;color:#8eeaff;letter-spacing:.035em}
 .serviceBtn{
-  margin:11px 5px 0;min-height:46px;min-width:126px;padding:10px 16px;
-  border-radius:13px;border:1px solid rgba(255,255,255,.42);
-  background:rgba(31,114,144,.92);color:white;font-weight:1000;font-size:14px;
+  margin:6px 4px 0;min-height:38px;min-width:105px;padding:7px 11px;
+  border-radius:10px;border:1px solid rgba(255,255,255,.38);
+  background:rgba(31,114,144,.92);color:white;font-weight:1000;font-size:12px;
   touch-action:manipulation
 }
 .serviceBtn.alt{background:rgba(74,78,84,.9)}
@@ -430,7 +431,7 @@
 /* v18.8: no top HUD + solid NPC collision + visible 3D oil-service assets */
 #hud{display:none!important}
 
-/* v18.9.2 — single-player Gage movement fix + multiplayer collision hotfix + spark-plug service + 3-song playlist */
+/* v18.10 — six plugs + $300 payout + UI polish (includes v18.9.2 movement fix) */
 #multiBtn{position:absolute;left:12px;top:12px;z-index:21;border:1px solid rgba(126,231,255,.5);background:rgba(4,16,23,.78);color:#fff;border-radius:999px;padding:9px 12px;font-weight:1000;font-size:11px;cursor:pointer;backdrop-filter:blur(6px)}
 #multiBtn.connected{border-color:#78efac;color:#a8ffca;background:rgba(10,55,38,.82)}
 #multiOverlay{position:absolute;inset:0;z-index:140;display:none;place-items:center;background:rgba(0,0,0,.68);backdrop-filter:blur(7px);pointer-events:auto}
@@ -454,13 +455,30 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 #sparkFail{position:absolute;inset:0;z-index:8;display:none;place-items:center;background:rgba(25,0,0,.84)}#sparkFail.show{display:grid}#sparkFailCard{width:min(450px,88vw);padding:23px;border-radius:18px;background:#341014;border:2px solid #ff6d76;text-align:center}#sparkFailCard b{font-size:25px;color:#ff9da4}#sparkRetry{margin-top:13px;min-height:46px;padding:10px 16px;border-radius:12px;border:0;background:#fff;color:#321015;font-weight:1000}
 @media(pointer:coarse){#multiBtn{left:10px;top:10px;padding:10px 13px;font-size:12px}#spark3DHost{inset:88px 0 145px}}
 
+/* v18.10 gear-oil pan + cash UI */
+#gearOilPan3DHost{z-index:3}
+#oilDrainPoint,#oilStream{z-index:4}
+#windReadout,#catchReadout,#spillMeter{z-index:6}
+#moneyMeter{position:absolute;right:10px;top:10px;z-index:122;padding:7px 11px;border-radius:999px;background:rgba(3,20,30,.82);border:1px solid rgba(111,235,157,.62);box-shadow:0 6px 22px rgba(0,0,0,.28);font-weight:1000;font-size:13px;color:#a8ffca;letter-spacing:.03em;pointer-events:none}
+#paymentToast{position:absolute;left:50%;top:14%;transform:translate(-50%,-50%) scale(.9);z-index:155;display:none;padding:12px 18px;border-radius:15px;background:rgba(7,54,34,.96);border:2px solid #78efac;box-shadow:0 16px 48px rgba(0,0,0,.5);font-weight:1000;font-size:clamp(18px,4vw,27px);color:#baffd2;text-align:center;pointer-events:none}
+#paymentToast.show{display:block;animation:paymentPop 2.5s ease both}
+@keyframes paymentPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.72)}12%,72%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.92)}}
+/* smaller job/minigame instruction headers */
+#sparkHeader{width:min(500px,76vw)!important;padding:6px 10px!important;border-radius:11px!important}
+#sparkHeader b{font-size:clamp(15px,2.8vw,21px)!important}
+#sparkInstruction{margin-top:2px!important;font-size:11px!important}
+#sparkProgress{margin-top:3px!important;font-size:11px!important}
+@media(pointer:coarse){#moneyMeter{right:8px;top:8px;padding:6px 9px;font-size:12px}#serviceCard{width:min(420px,72vw)}#fullscreenBtn{width:34px;height:34px;font-size:16px;bottom:6px}}
+
 </style>
 </head>
 <body>
 <div id="stage"></div>
-<button id="fullscreenBtn" type="button">FULL SCREEN</button>
+<button id="fullscreenBtn" type="button" aria-label="Toggle full screen" title="Full screen">⛶</button>
 <button id="musicCtl" type="button">MUSIC: ON</button>
 <button id="multiBtn" type="button">2 PLAYER</button>
+<div id="moneyMeter">CASH $0</div>
+<div id="paymentToast">CUSTOMER PAID +$300</div>
 
 <div id="cutsceneOverlay">
   <video id="jobCutscene" playsinline preload="auto" src="first_job_call.mp4"></video>
@@ -647,7 +665,7 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 </div>
 
 <div id="sparkPanel">
-  <div id="sparkHeader"><b>SPARK PLUG SERVICE</b><div id="sparkInstruction">Swipe LEFT to loosen the spark plug.</div><div id="sparkProgress">PLUG 1 / 4</div></div>
+  <div id="sparkHeader"><b>SPARK PLUG SERVICE</b><div id="sparkInstruction">Swipe LEFT to loosen the spark plug.</div><div id="sparkProgress">PLUG 1 / 6</div></div>
   <div id="sparkAssetBadge">3D TOOLS LOADING…</div>
   <div id="spark3DHost"><canvas id="sparkCanvas"></canvas></div>
   <div id="sparkSwipePad"><div id="sparkSwipeArrow">←</div><div id="sparkSwipeText">0 / 4 LEFT SWIPES</div><div id="sparkFeedback">Use the ratchet to break the plug loose.</div></div>
@@ -752,7 +770,10 @@ async function enterGameFullscreen(){
   }catch(e){}
 }
 function syncFullscreenButton(){
-  if(fullscreenBtn) fullscreenBtn.textContent=document.fullscreenElement?'EXIT FULL SCREEN':'FULL SCREEN';
+  if(!fullscreenBtn)return;
+  fullscreenBtn.textContent=document.fullscreenElement?'↙':'⛶';
+  fullscreenBtn.title=document.fullscreenElement?'Exit full screen':'Full screen';
+  fullscreenBtn.setAttribute('aria-label',fullscreenBtn.title);
 }
 fullscreenBtn?.addEventListener('click',async e=>{
   e.preventDefault();e.stopPropagation();
@@ -764,6 +785,21 @@ fullscreenBtn?.addEventListener('click',async e=>{
   syncFullscreenButton();
 });
 document.addEventListener('fullscreenchange',syncFullscreenButton);
+
+const moneyMeter=document.getElementById('moneyMeter');
+const paymentToast=document.getElementById('paymentToast');
+let gameCash=Number(localStorage.getItem('dockyardCash')||0);
+function setGameCash(value,persist=true){
+  gameCash=Math.max(0,Math.round(Number(value)||0));
+  if(moneyMeter)moneyMeter.textContent=`CASH $${gameCash.toLocaleString()}`;
+  if(persist)try{localStorage.setItem('dockyardCash',String(gameCash))}catch(e){}
+}
+function awardMoney(amount){
+  setGameCash(gameCash+amount,true);
+  if(paymentToast){paymentToast.textContent=`CUSTOMER PAID +$${amount.toLocaleString()}`;paymentToast.classList.remove('show');void paymentToast.offsetWidth;paymentToast.classList.add('show');setTimeout(()=>paymentToast.classList.remove('show'),2600)}
+}
+setGameCash(gameCash,false);
+
 
 const cutsceneOverlay=document.getElementById('cutsceneOverlay');
 const jobCutscene=document.getElementById('jobCutscene');
@@ -1429,7 +1465,7 @@ const serviceState={
     funnelPicked:false,funnelInstalled:false,freshOil:0,pouring:false,pourLoop:0,
     filterInstalled:false,fillCapRemoved:false
   },
-  spark:{active:false,plug:1,total:4,phase:'remove',swipes:0,wrong:0,startX:0,tracking:false}
+  spark:{active:false,plug:1,total:6,phase:'remove',swipes:0,wrong:0,startX:0,tracking:false,paid:false}
 };
 const manateeState={
   targetIndex:1,baseY:.02,currentSpeed:.9,targetSpeed:.9,
@@ -1910,8 +1946,9 @@ function initGearOilPan3D(){
     scene3.add(new THREE.HemisphereLight(0xf3fbff,0x172127,2.4));const key=new THREE.DirectionalLight(0xffffff,2.0);key.position.set(3,6,5);scene3.add(key);
     gearOilPan3d.renderer=renderer;gearOilPan3d.scene=scene3;gearOilPan3d.camera=cam;
     gltfLoader.load('gear_oil_pan.glb',g=>{
-      fitGearPanModel(g.scene,1.45);
-      const wrap=new THREE.Group();wrap.add(g.scene);wrap.rotation.set(-.26,.36,0);wrap.position.set(0,-.72,.15);scene3.add(wrap);
+      fitGearPanModel(g.scene,2.05);
+      g.scene.traverse(o=>{if(o.isMesh&&o.material){const mats=Array.isArray(o.material)?o.material:[o.material];o.material=mats.map(m=>{const c=m.clone();if(c.color)c.color.set(0x090b0d);if('metalness' in c)c.metalness=Math.max(.18,c.metalness||0);if('roughness' in c)c.roughness=.72;return c});if(o.material.length===1)o.material=o.material[0]}});
+      const wrap=new THREE.Group();wrap.add(g.scene);wrap.rotation.set(-.20,.24,0);wrap.position.set(0,-1.12,.15);scene3.add(wrap);
       gearOilPan3d.model=wrap;gearOilPan3d.ready=true;gearOilPan3d.loading=false;resizeGearOilPan3D();
     },undefined,()=>{gearOilPan3d.loading=false;});
   }catch(e){gearOilPan3d.loading=false;}
@@ -1996,7 +2033,7 @@ function runOilCatch(now){
     serviceState.wind<-.65?'GUST: ←←':
     serviceState.wind<-.18?'WIND: ←':'WIND: CALM';
 
-  const caught=Math.abs(serviceState.panX-streamX)<.105;
+  const caught=Math.abs(serviceState.panX-streamX)<.145;
   if(caught)serviceState.catchProgress+=dt;
   else serviceState.spill+=dt*(5.5+absWind*1.8);
 
@@ -2580,13 +2617,33 @@ async function initSpark3D(){if(spark3d.ready||spark3d.loading)return;spark3d.lo
 function resizeSpark3D(){if(!spark3d.renderer)return;const w=Math.max(1,spark3DHost.clientWidth),h=Math.max(1,spark3DHost.clientHeight);spark3d.renderer.setSize(w,h,false);spark3d.camera.aspect=w/h;spark3d.camera.updateProjectionMatrix()}
 function sparkLoop(){spark3d.loop=0;if(!sparkPanel.classList.contains('active'))return;if(spark3d.renderer){resizeSpark3D();spark3d.renderer.render(spark3d.scene,spark3d.camera)}spark3d.loop=requestAnimationFrame(sparkLoop)}
 function sparkPoseForPhase(){const s=serviceState.spark,p=spark3d.models.plug,r=spark3d.models.ratchet;if(p){p.position.set(-.55,-.15,0);p.rotation.set(0,.15,.03)}if(r){r.position.set(.75,.2,.15);r.rotation.set(0,-.25,-.18)}if(s.phase==='remove'){sparkSwipeArrow.textContent='←';sparkInstruction.textContent='Swipe LEFT to loosen and remove the old plug.';sparkSwipeText.textContent=`${s.swipes} / 4 LEFT SWIPES`;sparkFeedback.textContent='Counterclockwise — keep the swipes clean.'}else if(s.phase==='install'){sparkSwipeArrow.textContent='→';sparkInstruction.textContent='Swipe RIGHT to thread the new plug in.';sparkSwipeText.textContent=`${s.swipes} / 4 RIGHT SWIPES`;sparkFeedback.textContent='Clockwise — thread it in smoothly.'}else if(s.phase==='torque'){sparkSwipeArrow.textContent='→';sparkInstruction.textContent='FINAL TIGHTEN: one controlled RIGHT swipe.';sparkSwipeText.textContent='DON’T OVER-TIGHTEN';sparkFeedback.textContent='Too hard of a final swipe can snap the plug.'}}
-function startSparkPlugService(){serviceOverlay.classList.remove('active');serviceCard.style.display='none';serviceState.active=true;serviceState.step='sparkPlugs';Object.assign(serviceState.spark,{active:true,plug:1,phase:'remove',swipes:0,wrong:0,tracking:false});sparkPanel.classList.add('active');sparkFail.classList.remove('show');jobBadge.textContent='ANNUAL SERVICE: SPARK PLUGS';initSpark3D().then(()=>{sparkPoseForPhase();if(!spark3d.loop)spark3d.loop=requestAnimationFrame(sparkLoop)});sparkProgress.textContent='PLUG 1 / 4';sparkPoseForPhase()}
+function startSparkPlugService(){serviceOverlay.classList.remove('active');serviceCard.style.display='none';serviceState.active=true;serviceState.step='sparkPlugs';Object.assign(serviceState.spark,{active:true,plug:1,phase:'remove',swipes:0,wrong:0,tracking:false,paid:false});sparkPanel.classList.add('active');sparkFail.classList.remove('show');jobBadge.textContent='ANNUAL SERVICE: SPARK PLUGS';initSpark3D().then(()=>{sparkPoseForPhase();if(!spark3d.loop)spark3d.loop=requestAnimationFrame(sparkLoop)});sparkProgress.textContent=`PLUG 1 / ${serviceState.spark.total}`;sparkPoseForPhase()}
 function resetCurrentSparkPlug(){const s=serviceState.spark;s.phase='remove';s.swipes=0;s.wrong=0;s.tracking=false;sparkFail.classList.remove('show');sparkPoseForPhase()}
 function failSparkPlug(reason){const s=serviceState.spark;s.tracking=false;sparkFailTitle.textContent='SPARK PLUG FAILED';sparkFailText.textContent=reason;sparkFail.classList.add('show');if(spark3d.models.plug)spark3d.models.plug.rotation.z=.65}
 sparkRetry.addEventListener('click',resetCurrentSparkPlug);
 sparkSwipePad.addEventListener('pointerdown',e=>{if(!serviceState.spark.active)return;const s=serviceState.spark;s.tracking=true;s.startX=e.clientX;sparkSwipePad.setPointerCapture?.(e.pointerId)});
 sparkSwipePad.addEventListener('pointerup',e=>{const s=serviceState.spark;if(!s.tracking||sparkFail.classList.contains('show'))return;s.tracking=false;const dx=e.clientX-s.startX,mag=Math.abs(dx);if(mag<42){sparkFeedback.textContent='BIGGER SWIPE';return}const got=dx<0?'LEFT':'RIGHT',want=s.phase==='remove'?'LEFT':'RIGHT';if(got!==want){s.wrong++;sparkFeedback.textContent=`WRONG DIRECTION ${s.wrong}/3`;sparkFeedback.style.color='#ffcf7c';if(s.wrong>=3)failSparkPlug('The plug got crossed up from repeated wrong-direction turns. Retry this plug.');return}s.wrong=0;if(s.phase==='torque'){if(mag>205){failSparkPlug('SNAP! You over-tightened the spark plug. Replace it and retry.');return}sparkFeedback.style.color='#83efb1';sparkFeedback.textContent='TORQUED CORRECTLY ✓';setTimeout(completeSparkPlug,420);return}s.swipes++;sparkFeedback.style.color='#83efb1';sparkFeedback.textContent='GOOD TURN ✓';if(spark3d.models.ratchet){const r=spark3d.models.ratchet,rz=r.rotation.z;r.rotation.z=rz+(got==='LEFT'?-0.30:.30);setTimeout(()=>r.rotation.z=rz,140)}if(spark3d.models.plug){const p=spark3d.models.plug;p.rotation.y+=(got==='LEFT'?-0.35:.35);p.position.x+=(s.phase==='remove'?-0.08:.08)}if(s.swipes>=4){if(s.phase==='remove'){s.phase='install';s.swipes=0;sparkFeedback.textContent='OLD PLUG OUT ✓ • NEW PLUG READY';setTimeout(sparkPoseForPhase,300)}else{s.phase='torque';s.swipes=0;setTimeout(sparkPoseForPhase,250)}}else sparkPoseForPhase()});
-function completeSparkPlug(){const s=serviceState.spark;if(s.plug<s.total){s.plug++;s.phase='remove';s.swipes=0;s.wrong=0;sparkProgress.textContent=`PLUG ${s.plug} / ${s.total}`;sparkPoseForPhase();return}s.active=false;serviceState.step='sparkPlugsComplete';sparkProgress.textContent='SPARK PLUGS COMPLETE ✓';sparkInstruction.textContent='All plugs replaced and tightened correctly.';sparkSwipePad.style.display='none';setTimeout(()=>{sparkPanel.classList.remove('active');sparkSwipePad.style.display='flex';cancelAnimationFrame(spark3d.loop);spark3d.loop=0;serviceOverlay.classList.add('active');serviceCard.style.display='block';setServiceText('SPARK PLUGS COMPLETE ✓','The spark plugs are finished. Ready for the next annual-service section.','ENGINE OIL ✓ • SPARK PLUGS ✓');serviceButtons.innerHTML='';serviceButton('CONTINUE',()=>{serviceCard.style.display='none';jobBadge.textContent='ANNUAL SERVICE: NEXT SECTION';animStatus.textContent='Spark plug service complete'});},850)}
+function completeSparkPlug(){
+  const s=serviceState.spark;
+  if(s.plug<s.total){
+    s.plug++;s.phase='remove';s.swipes=0;s.wrong=0;
+    sparkProgress.textContent=`PLUG ${s.plug} / ${s.total}`;
+    sparkPoseForPhase();
+    return;
+  }
+  s.active=false;serviceState.step='sparkPlugsComplete';
+  sparkProgress.textContent='ALL 6 SPARK PLUGS COMPLETE ✓';
+  sparkInstruction.textContent='All six plugs replaced and tightened correctly.';
+  sparkSwipePad.style.display='none';
+  setTimeout(()=>{
+    sparkPanel.classList.remove('active');sparkSwipePad.style.display='flex';cancelAnimationFrame(spark3d.loop);spark3d.loop=0;
+    if(!s.paid&&!isGuestPlayer()){s.paid=true;awardMoney(300)}
+    serviceOverlay.classList.add('active');serviceCard.style.display='block';
+    setServiceText('ANNUAL SERVICE COMPLETE ✓','Six spark plugs are installed. The customer pays <b>$300</b>.','JOB COMPLETE • +$300');
+    serviceButtons.innerHTML='';
+    serviceButton('DONE',()=>{serviceCard.style.display='none';serviceOverlay.classList.remove('active');jobBadge.textContent='JOB COMPLETE • PAID $300';animStatus.textContent='Annual service complete • customer paid $300'});
+  },850);
+}
 addEventListener('resize',resizeSpark3D);
 
 // ---------- v18.9 two-player P2P (Host Rick / Join Gage) ----------
@@ -2622,11 +2679,11 @@ function sendWelcome(){
   multiplayer.remote.x=spawn.x;multiplayer.remote.y=spawn.y;multiplayer.remote.z=spawn.z;multiplayer.remote.yaw=spawn.yaw;
   multiplayer.conn.send({t:'welcome',...spawn});
 }
-function setupConnection(conn){multiplayer.conn=conn;conn.on('open',()=>{multiplayer.connected=true;multiBtn.classList.add('connected');disconnectGameBtn.style.display='inline-block';if(multiplayer.role==='host'){multiBtn.textContent=`RICK • ${multiplayer.room}`;setMultiStatus(`GAGE CONNECTED ✓ • Room ${multiplayer.room}`);sendWelcome()}else{multiBtn.textContent='GAGE • CONNECTED';setMultiStatus(`CONNECTED AS GAGE ✓ • Room ${multiplayer.room}`);document.body.classList.add('gage-player')}setTimeout(closeMultiplayer,650)});conn.on('data',d=>{if(!d||typeof d!=='object')return;if(d.t==='welcome'&&isGuestPlayer()){controller.pos.set(d.x,d.y,d.z);controller.yaw=d.yaw||0;controller.groundY=d.y;return}if(d.t==='pos'){multiplayer.remote.x=d.x;multiplayer.remote.y=d.y;multiplayer.remote.z=d.z;multiplayer.remote.yaw=d.yaw;multiplayer.remote.moving=!!d.moving;multiplayer.remote.running=!!d.running;if(d.chas)multiplayer.remoteChas=d.chas}});conn.on('close',()=>cleanupMultiplayer('Other player disconnected • back to single-player.'));conn.on('error',()=>cleanupMultiplayer('Connection lost • back to single-player.'))}
+function setupConnection(conn){multiplayer.conn=conn;conn.on('open',()=>{multiplayer.connected=true;multiBtn.classList.add('connected');disconnectGameBtn.style.display='inline-block';if(multiplayer.role==='host'){multiBtn.textContent=`RICK • ${multiplayer.room}`;setMultiStatus(`GAGE CONNECTED ✓ • Room ${multiplayer.room}`);sendWelcome()}else{multiBtn.textContent='GAGE • CONNECTED';setMultiStatus(`CONNECTED AS GAGE ✓ • Room ${multiplayer.room}`);document.body.classList.add('gage-player')}setTimeout(closeMultiplayer,650)});conn.on('data',d=>{if(!d||typeof d!=='object')return;if(d.t==='welcome'&&isGuestPlayer()){controller.pos.set(d.x,d.y,d.z);controller.yaw=d.yaw||0;controller.groundY=d.y;return}if(d.t==='pos'){multiplayer.remote.x=d.x;multiplayer.remote.y=d.y;multiplayer.remote.z=d.z;multiplayer.remote.yaw=d.yaw;multiplayer.remote.moving=!!d.moving;multiplayer.remote.running=!!d.running;if(d.chas)multiplayer.remoteChas=d.chas;if(isGuestPlayer()&&Number.isFinite(d.cash))setGameCash(d.cash,false)}});conn.on('close',()=>cleanupMultiplayer('Other player disconnected • back to single-player.'));conn.on('error',()=>cleanupMultiplayer('Connection lost • back to single-player.'))}
 hostGameBtn.addEventListener('click',()=>{if(typeof Peer==='undefined'){setMultiStatus('Multiplayer library could not load. Make sure the game is online.');return}cleanupMultiplayer('Starting room…');const code=roomCode();multiplayer.role='host';multiplayer.room=code;setMultiStatus(`ROOM ${code} • Waiting for Gage…`);roomCodeInput.value=code;const peer=new Peer(`dockyard-${code.toLowerCase()}`);multiplayer.peer=peer;peer.on('open',()=>setMultiStatus(`ROOM ${code} • Waiting for Gage…`));peer.on('connection',conn=>{if(multiplayer.conn?.open){conn.close();return}setupConnection(conn)});peer.on('error',e=>cleanupMultiplayer(`Host error: ${e.type||'connection failed'}`))});
 joinGameBtn.addEventListener('click',()=>{if(typeof Peer==='undefined'){setMultiStatus('Multiplayer library could not load. Make sure the game is online.');return}const code=roomCodeInput.value.trim().toUpperCase();if(code.length<4){setMultiStatus('Enter Rick’s room code.');return}cleanupMultiplayer('Connecting…');multiplayer.role='guest';multiplayer.room=code;const peer=new Peer();multiplayer.peer=peer;peer.on('open',()=>{const conn=peer.connect(`dockyard-${code.toLowerCase()}`,{reliable:true});setupConnection(conn)});peer.on('error',e=>cleanupMultiplayer(`Join error: ${e.type||'connection failed'}`))});
 disconnectGameBtn.addEventListener('click',()=>cleanupMultiplayer());
-function multiplayerTick(time){if(!multiplayer.connected||!multiplayer.conn?.open)return;if(time-multiplayer.lastSend<.065)return;multiplayer.lastSend=time;const msg={t:'pos',x:controller.pos.x,y:controller.pos.y,z:controller.pos.z,yaw:controller.yaw,moving:multiplayer.localMoving,running:multiplayer.localRunning};if(isHostPlayer()&&chasNPC)msg.chas={x:chasNPC.position.x,y:chasNPC.position.y,z:chasNPC.position.z,yaw:chasNPC.rotation.y,mode:chasState.mode};try{multiplayer.conn.send(msg)}catch(e){}}
+function multiplayerTick(time){if(!multiplayer.connected||!multiplayer.conn?.open)return;if(time-multiplayer.lastSend<.065)return;multiplayer.lastSend=time;const msg={t:'pos',x:controller.pos.x,y:controller.pos.y,z:controller.pos.z,yaw:controller.yaw,moving:multiplayer.localMoving,running:multiplayer.localRunning};if(isHostPlayer()){msg.cash=gameCash;if(chasNPC)msg.chas={x:chasNPC.position.x,y:chasNPC.position.y,z:chasNPC.position.z,yaw:chasNPC.rotation.y,mode:chasState.mode}}try{multiplayer.conn.send(msg)}catch(e){}}
 
 function showJobStartPopup(){
   if(serviceState.active)return;
