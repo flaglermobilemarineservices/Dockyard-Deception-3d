@@ -1,18 +1,3 @@
-Dockyard Deception v18.20 — Water + Sky Visual Pass
-
-Replace only index.html in the repo root.
-
-Visual changes:
-- richer humid Florida sky with more atmospheric blue depth and cleaner horizon haze
-- localized warm late-afternoon glow instead of an orange wash
-- more natural sun halo and softer sun disc
-- thin high cirrus detail added to the sky shader
-- water now has directional rolling chop instead of uniform sine waves
-- stronger sky reflection/Fresnel response
-- more convincing blue-green marina body color
-- broken warm sun sparkle across the water
-- subtle crest highlights
-- slightly denser water mesh, still kept mobile-friendly
-- cloud shading and drift improved for more depth
-
-No gameplay logic changed in this update.
+Dockyard Deception v18.20
+Replace your repo-root index.html with this one.
+Includes the latest water + sky visual upgrade.
