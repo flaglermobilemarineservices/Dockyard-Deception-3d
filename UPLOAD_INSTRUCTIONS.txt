@@ -1,14 +1,11 @@
-Dockyard Deception v18.19.2
+Dockyard Deception v18.19.3 — Gear Oil Pan Fix
 
-Replace ONLY index.html in the repo root.
+Replace only index.html in the repo root.
 
 Changes:
-- Spark-plug torque target is slightly easier to hit (wider success zone and less sensitive swipe strength).
-- Gear oil will NOT start draining until the player touches/grabs the pan.
-- Bubble purge button stays gray until needed, then lights green and says TAP AND HOLD.
-- Purge mistakes now add time and bubbles:
-  • tapping too early = +2.5 sec
-  • releasing too soon = +2 sec
-  • missing the lit-button window = +3 sec
-- Incoming customer calls now have an audible repeating ringtone plus vibration.
-- 1-in-50 chance the oil filter is stuck; stuck filters require 8 harder swipes to break loose.
+- Drain pan made moderately smaller.
+- Gear-oil drain does not start from a random tap anymore.
+- You must actually touch/grab the pan to start and to move it.
+- Tapping elsewhere shows GRAB THE PAN and does not teleport the pan.
+- Catch zone is recentered/tightened to match the smaller visible pan.
+- Missing the pan still spills oil and can fail the step.

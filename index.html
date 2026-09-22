@@ -133,7 +133,7 @@
 #oilDrainPoint,#oilStream{z-index:3}
 #windReadout,#catchReadout,#spillMeter{z-index:5}
 #oilPan{
-  position:absolute;bottom:8px;left:50%;width:160px;height:54px;
+  position:absolute;bottom:6px;left:50%;width:124px;height:68px;
   transform:translateX(-50%);border:0;background:transparent;opacity:0;z-index:4;
   pointer-events:none
 }
@@ -150,6 +150,14 @@
   border-radius:999px;background:rgba(255,255,255,.16);overflow:hidden
 }
 #spillFill{height:100%;width:0;background:#ff725f}
+#oilPanGrabHint{
+  position:absolute;left:50%;bottom:72px;transform:translateX(-50%);
+  z-index:7;display:none;padding:6px 10px;border-radius:999px;
+  background:rgba(0,0,0,.72);border:1px solid rgba(255,224,102,.65);
+  color:#ffe580;font-size:11px;font-weight:1000;pointer-events:none
+}
+#oilPanGrabHint.show{display:block;animation:panHintPop .8s ease both}
+@keyframes panHintPop{0%{opacity:0;transform:translate(-50%,6px)}20%,75%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-3px)}}
 #oilSpillPuddle{
   position:absolute;left:55%;bottom:2px;width:22px;height:7px;
   transform:translateX(-50%) scale(.35);transform-origin:center bottom;
@@ -638,6 +646,7 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
     <div id="oilStream"></div>
     <div id="oilSpillPuddle"></div>
     <div id="oilPan"></div>
+    <div id="oilPanGrabHint">GRAB THE PAN</div>
     <div id="windReadout">WIND: CALM</div>
     <div id="catchReadout">DRAIN: 0%</div>
     <div id="spillMeter"><div id="spillFill"></div></div>
@@ -962,6 +971,7 @@ const bottomScrewHotspot=document.getElementById('bottomScrewHotspot');
 const oilCatchGame=document.getElementById('oilCatchGame');
 const oilStream=document.getElementById('oilStream');
 const oilPan=document.getElementById('oilPan');
+const oilPanGrabHint=document.getElementById('oilPanGrabHint');
 const gearOilPan3DHost=document.getElementById('gearOilPan3DHost');
 const gearOilPanCanvas=document.getElementById('gearOilPanCanvas');
 const windReadout=document.getElementById('windReadout');
@@ -2240,7 +2250,7 @@ function initGearOilPan3D(){
     scene3.add(new THREE.HemisphereLight(0xf3fbff,0x172127,2.4));const key=new THREE.DirectionalLight(0xffffff,2.0);key.position.set(3,6,5);scene3.add(key);
     gearOilPan3d.renderer=renderer;gearOilPan3d.scene=scene3;gearOilPan3d.camera=cam;
     gltfLoader.load('gear_oil_pan.glb',g=>{
-      fitGearPanModel(g.scene,1.58);g.scene.scale.x*=1.48;g.scene.scale.y*=.40;g.scene.scale.z*=.74;
+      fitGearPanModel(g.scene,1.34);g.scene.scale.x*=1.24;g.scene.scale.y*=.40;g.scene.scale.z*=.70;
       g.scene.traverse(o=>{if(o.isMesh&&o.material){const mats=Array.isArray(o.material)?o.material:[o.material];o.material=mats.map(m=>{const c=m.clone();if(c.color)c.color.set(0x090b0d);if('metalness' in c)c.metalness=Math.max(.18,c.metalness||0);if('roughness' in c)c.roughness=.72;return c});if(o.material.length===1)o.material=o.material[0]}});
       const wrap=new THREE.Group();wrap.add(g.scene);/* broad X/Z opening faces +Y: flat/open side UP */wrap.rotation.set(0,.04,0);wrap.position.set(0,-1.70,.12);scene3.add(wrap);
       gearOilPan3d.model=wrap;gearOilPan3d.ready=true;gearOilPan3d.loading=false;resizeGearOilPan3D();
@@ -2274,7 +2284,7 @@ function startOilCatch(){
   serviceState.drainProgress=0;serviceState.catchProgress=0;serviceState.spill=0;serviceState.panX=.5;serviceState.wind=0;serviceState.catchStarted=false;
   showServiceCardForFiveSeconds(
     'STEP 3 — CATCH THE OLD GEAR OIL',
-    'Put your finger on the pan to start the drain. Once you touch it, <b>the oil keeps draining whether you catch it or not.</b> Miss the stream and it spills immediately.',
+    'Grab the drain pan itself to start. The pan will not teleport to a random tap. Once the oil starts, <b>keep the stream over the middle of the pan</b> or it spills.',
     'DON’T LET THE SPILL METER HIT 40%',
     ()=>{
       oilCatchGame.style.display='block';
@@ -2286,7 +2296,8 @@ function startOilCatch(){
       oilStream.style.left='55%';
       oilStream.style.transform='translateX(-50%) rotate(0deg)';
       oilStream.style.opacity='0';
-      catchReadout.textContent='PUT YOUR FINGER ON THE PAN TO START';
+      oilPanGrabHint?.classList.remove('show');
+      catchReadout.textContent='GRAB THE PAN TO START';
       spillFill.style.width='0%';
       if(oilSpillPuddle){
         oilSpillPuddle.style.opacity='0';
@@ -2308,8 +2319,27 @@ function movePanFromPointer(e){
   oilPan.style.left=(serviceState.panX*100)+'%';
   updateGearOilPan3D();
 }
+function pointerIsOnGearPan(e){
+  const r=oilCatchGame.getBoundingClientRect();
+  const px=e.clientX-r.left, py=e.clientY-r.top;
+  const panCenterX=serviceState.panX*r.width;
+  const panW=Math.min(138,Math.max(104,r.width*.30));
+  const panH=Math.min(92,Math.max(68,r.height*.18));
+  const panCenterY=r.height-34;
+  return Math.abs(px-panCenterX)<=panW*.52 && Math.abs(py-panCenterY)<=panH*.58;
+}
+function flashPanGrabHint(){
+  if(!oilPanGrabHint)return;
+  oilPanGrabHint.classList.remove('show');
+  void oilPanGrabHint.offsetWidth;
+  oilPanGrabHint.classList.add('show');
+}
 oilCatchGame.addEventListener('pointerdown',e=>{
   if(serviceState.step!=='catch')return;
+  if(!pointerIsOnGearPan(e)){
+    flashPanGrabHint();
+    return;
+  }
   oilPanDragging=true;
   oilCatchGame.setPointerCapture?.(e.pointerId);
   movePanFromPointer(e);
@@ -2360,7 +2390,7 @@ function runOilCatch(now){
   // v18.19.1 — the oil NEVER pauses just because the pan missed it.
   // The drain continues for the full cycle; oil is either caught or becomes a real spill.
   const drainSeconds=7.0;
-  const panHalfWidth=.105; // visible usable center area of the pan
+  const panHalfWidth=.082; // centered on the smaller visible pan
   const caught=Math.abs(serviceState.panX-streamX)<=panHalfWidth;
 
   serviceState.drainProgress+=dt;
