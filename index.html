@@ -1141,99 +1141,195 @@ const clock=new THREE.Clock();
 const skyGeo=new THREE.SphereGeometry(190,40,28);
 const skyUniforms={
   uTime:{value:0},
-  topColor:{value:new THREE.Color(0x2277bd)},
-  midColor:{value:new THREE.Color(0x63bce6)},
-  horizonColor:{value:new THREE.Color(0xbfe7ef)},
-  warmColor:{value:new THREE.Color(0xffcb8c)}
+  zenithColor:{value:new THREE.Color(0x176fbb)},
+  upperColor:{value:new THREE.Color(0x4caee0)},
+  horizonColor:{value:new THREE.Color(0xc8edf3)},
+  warmColor:{value:new THREE.Color(0xffc986)},
+  hazeColor:{value:new THREE.Color(0xe8f3ef)}
 };
 const skyMat=new THREE.ShaderMaterial({
   side:THREE.BackSide,depthWrite:false,uniforms:skyUniforms,
-  vertexShader:`varying vec3 vWorld;void main(){vec4 w=modelMatrix*vec4(position,1.0);vWorld=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
-  fragmentShader:`varying vec3 vWorld;uniform float uTime;uniform vec3 topColor,midColor,horizonColor,warmColor;
+  vertexShader:`varying vec3 vWorld;
+  void main(){
+    vec4 w=modelMatrix*vec4(position,1.0);
+    vWorld=w.xyz;
+    gl_Position=projectionMatrix*viewMatrix*w;
+  }`,
+  fragmentShader:`varying vec3 vWorld;
+  uniform float uTime;
+  uniform vec3 zenithColor,upperColor,horizonColor,warmColor,hazeColor;
+
+  float hash(vec2 p){
+    return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);
+  }
+
   void main(){
     vec3 d=normalize(vWorld-cameraPosition);
-    float h=d.y;
-    float t=smoothstep(-.08,.88,h);
-    vec3 c=mix(horizonColor,midColor,smoothstep(.00,.32,h));
-    c=mix(c,topColor,smoothstep(.30,.92,h));
-    // Warm late-afternoon haze concentrated near the sun side instead of making the whole sky orange.
-    vec3 sdir=normalize(vec3(-.38,.18,-.91));
+    float h=clamp(d.y,-0.15,1.0);
+
+    // More atmospheric Florida sky: pale humid horizon -> saturated blue overhead.
+    vec3 c=mix(horizonColor,upperColor,smoothstep(-.02,.34,h));
+    c=mix(c,zenithColor,smoothstep(.34,.92,h));
+
+    // Strong but localized warm late-afternoon glow.
+    vec3 sdir=normalize(vec3(-.39,.19,-.90));
     float sd=max(dot(d,sdir),0.0);
-    float horizon=exp(-pow((h-.015)/.12,2.0));
-    float warm=horizon*pow(sd,5.0);
-    c=mix(c,warmColor,clamp(warm*.58,0.0,.58));
-    float sunHalo=pow(sd,38.0)*(1.0-smoothstep(.42,.75,h));
-    c+=vec3(1.0,.58,.25)*sunHalo*.18;
-    // Very subtle high-altitude streaks keep the dome from looking like a flat gradient.
-    float streak=(sin(d.x*24.0+d.z*17.0+uTime*.012)+sin(d.x*41.0-d.z*13.0-uTime*.008))*0.5;
-    streak=smoothstep(.72,1.0,streak)*smoothstep(.04,.22,h)*(1.0-smoothstep(.50,.78,h));
-    c=mix(c,vec3(.93,.98,1.0),streak*.10);
+    float horizonBand=exp(-pow((h-.015)/.105,2.0));
+    float warm=horizonBand*pow(sd,3.7);
+    c=mix(c,warmColor,clamp(warm*.72,0.0,.64));
+
+    // Humidity/haze right on the horizon.
+    float haze=1.0-smoothstep(-.015,.115,h);
+    c=mix(c,hazeColor,haze*.34);
+
+    // Sun halo and forward scattering.
+    float halo=pow(sd,20.0)*(1.0-smoothstep(.48,.82,h));
+    float tight=pow(sd,115.0)*(1.0-smoothstep(.55,.86,h));
+    c+=vec3(1.00,.64,.31)*halo*.18;
+    c+=vec3(1.00,.84,.60)*tight*.32;
+
+    // High thin cirrus streaks.
+    float a=sin(d.x*31.0+d.z*19.0+uTime*.010);
+    float b=sin(d.x*54.0-d.z*23.0-uTime*.006+1.7);
+    float cirrus=smoothstep(1.05,1.62,a+b);
+    cirrus*=smoothstep(.13,.27,h)*(1.0-smoothstep(.58,.82,h));
+    c=mix(c,vec3(.97,.99,1.0),cirrus*.16);
+
+    // Tiny tonal breakup so the dome doesn't read as one flat gradient.
+    float grain=(hash(d.xz*220.0)-.5)*.006;
+    c+=grain;
+
     gl_FragColor=vec4(c,1.0);
   }`
 });
 const skyDome=new THREE.Mesh(skyGeo,skyMat);scene.add(skyDome);
 
 // Brighter blue ambient fill + warm sun. Less fog so the water color stays visible instead of washing gray.
-scene.fog=new THREE.FogExp2(0x9bc9d7,.00255);
-renderer.toneMappingExposure=1.26;
-scene.add(new THREE.HemisphereLight(0xeaf8ff,0x204852,2.06));
-const sun=new THREE.DirectionalLight(0xffc978,4.25);sun.position.set(-28,20,-34);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-36;sun.shadow.camera.right=36;sun.shadow.camera.top=36;sun.shadow.camera.bottom=-36;scene.add(sun);
+scene.fog=new THREE.FogExp2(0xa8cfd7,.00185);
+renderer.toneMappingExposure=1.20;
+scene.add(new THREE.HemisphereLight(0xe9f7ff,0x173f49,1.88));
+const sun=new THREE.DirectionalLight(0xffcc86,3.75);sun.position.set(-28,20,-34);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-36;sun.shadow.camera.right=36;sun.shadow.camera.top=36;sun.shadow.camera.bottom=-36;scene.add(sun);
 scene.add(new THREE.AmbientLight(0x76aac6,.48));
 
 // v18.16 water: larger rolling surface + fine wind ripples + stronger Fresnel and broken golden highlights.
-const waterGeo=new THREE.PlaneGeometry(175,175,84,84);waterGeo.rotateX(-Math.PI/2);
+const waterGeo=new THREE.PlaneGeometry(175,175,96,96);waterGeo.rotateX(-Math.PI/2);
 const waterUniforms={
   uTime:{value:0},
-  deepColor:{value:new THREE.Color(0x034f67)},
-  midColor:{value:new THREE.Color(0x0789a1)},
-  brightColor:{value:new THREE.Color(0x36bfd0)},
-  skyColor:{value:new THREE.Color(0x9bdced)},
-  sunColor:{value:new THREE.Color(0xffd08b)}
+  deepColor:{value:new THREE.Color(0x03485a)},
+  midColor:{value:new THREE.Color(0x087f92)},
+  shallowColor:{value:new THREE.Color(0x2db5bd)},
+  horizonColor:{value:new THREE.Color(0xb9e5ec)},
+  skyTop:{value:new THREE.Color(0x4caee0)},
+  sunColor:{value:new THREE.Color(0xffd08a)},
+  foamColor:{value:new THREE.Color(0xe9fbf7)}
 };
 const waterMat=new THREE.ShaderMaterial({
   side:THREE.DoubleSide,uniforms:waterUniforms,
   vertexShader:`
-    uniform float uTime;varying vec3 vWorld;varying vec3 vN;varying float vWave;
+    uniform float uTime;
+    varying vec3 vWorld;
+    varying vec3 vN;
+    varying float vCrest;
+    varying float vLargeWave;
+
     void main(){
-      vec3 p=position;float t=uTime;
-      float w1=sin(p.x*.29+t*.82)*.078;
-      float w2=sin(p.z*.25-t*.66+1.4)*.060;
-      float w3=sin((p.x+p.z)*.17+t*1.05)*.042;
-      float w4=sin((p.x-p.z)*.54-t*1.42)*.020;
-      p.y+=w1+w2+w3+w4;
-      float dx=cos(p.x*.29+t*.82)*.0226 + cos((p.x+p.z)*.17+t*1.05)*.0071 + cos((p.x-p.z)*.54-t*1.42)*.0108;
-      float dz=cos(p.z*.25-t*.66+1.4)*.0150 + cos((p.x+p.z)*.17+t*1.05)*.0071 - cos((p.x-p.z)*.54-t*1.42)*.0108;
+      vec3 p=position;
+      float t=uTime;
+
+      // Directional marina chop instead of uniform sine ripples.
+      float w1=sin(p.x*.23+p.z*.06+t*.72)*.070;
+      float w2=sin(p.z*.29-p.x*.04-t*.57+1.5)*.052;
+      float w3=sin((p.x+p.z)*.15+t*.91)*.038;
+      float w4=sin((p.x-p.z)*.47-t*1.24)*.018;
+      float w5=sin(p.x*.83+p.z*.37+t*1.52)*.010;
+      float wave=w1+w2+w3+w4+w5;
+      p.y+=wave;
+
+      float dx=
+        cos(p.x*.23+p.z*.06+t*.72)*.0161
+        -cos(p.z*.29-p.x*.04-t*.57+1.5)*.0021
+        +cos((p.x+p.z)*.15+t*.91)*.0057
+        +cos((p.x-p.z)*.47-t*1.24)*.0085
+        +cos(p.x*.83+p.z*.37+t*1.52)*.0083;
+
+      float dz=
+        cos(p.x*.23+p.z*.06+t*.72)*.0042
+        +cos(p.z*.29-p.x*.04-t*.57+1.5)*.0151
+        +cos((p.x+p.z)*.15+t*.91)*.0057
+        -cos((p.x-p.z)*.47-t*1.24)*.0085
+        +cos(p.x*.83+p.z*.37+t*1.52)*.0037;
+
       vec3 n=normalize(vec3(-dx,1.0,-dz));
-      vec4 world=modelMatrix*vec4(p,1.0);vWorld=world.xyz;vN=normalize(mat3(modelMatrix)*n);
-      vWave=.5+.5*sin(p.x*.22+p.z*.19+t*.72);gl_Position=projectionMatrix*viewMatrix*world;
+      vec4 world=modelMatrix*vec4(p,1.0);
+
+      vWorld=world.xyz;
+      vN=normalize(mat3(modelMatrix)*n);
+      vLargeWave=wave;
+      vCrest=smoothstep(.085,.145,wave);
+
+      gl_Position=projectionMatrix*viewMatrix*world;
     }`,
   fragmentShader:`
-    uniform float uTime;uniform vec3 deepColor,midColor,brightColor,skyColor,sunColor;
-    varying vec3 vWorld;varying vec3 vN;varying float vWave;
+    uniform float uTime;
+    uniform vec3 deepColor,midColor,shallowColor,horizonColor,skyTop,sunColor,foamColor;
+    varying vec3 vWorld;
+    varying vec3 vN;
+    varying float vCrest;
+    varying float vLargeWave;
+
     void main(){
       vec3 n=normalize(vN);
-      // Fine wind chop rides on top of the larger geometry waves.
-      float ax=vWorld.x*1.55+vWorld.z*.34+uTime*1.38;
-      float az=vWorld.z*1.86-vWorld.x*.47-uTime*1.16;
-      float bx=(vWorld.x+vWorld.z)*2.65+uTime*1.82;
-      vec3 micro=normalize(vec3(cos(ax)*.115+cos(bx)*.052,1.0,cos(az)*.105+cos(bx)*.052));
-      n=normalize(mix(n,micro,.43));
+
+      // Two scales of tiny surface normals for convincing sparkle/chop.
+      float a=vWorld.x*1.70+vWorld.z*.36+uTime*1.47;
+      float b=vWorld.z*2.05-vWorld.x*.51-uTime*1.18;
+      float c=(vWorld.x+vWorld.z)*3.30+uTime*1.93;
+      float d=(vWorld.x-vWorld.z)*4.25-uTime*2.20;
+
+      vec3 micro=normalize(vec3(
+        cos(a)*.105+cos(c)*.048+cos(d)*.022,
+        1.0,
+        cos(b)*.096+cos(c)*.045-cos(d)*.019
+      ));
+      n=normalize(mix(n,micro,.46));
+
       vec3 viewDir=normalize(cameraPosition-vWorld);
-      float fres=pow(1.0-clamp(dot(n,viewDir),0.0,1.0),1.65);
+      float ndv=clamp(dot(n,viewDir),0.0,1.0);
+      float fres=pow(1.0-ndv,2.15);
+
+      // Fake reflected sky based on reflected ray height.
+      vec3 refl=reflect(-viewDir,n);
+      float skyH=clamp(refl.y*.78+.32,0.0,1.0);
+      vec3 reflectedSky=mix(horizonColor,skyTop,smoothstep(.15,.92,skyH));
+
+      // Water body color changes slightly with view angle / wave face.
+      float faceLight=.5+.5*n.y;
+      vec3 body=mix(deepColor,midColor,.46+.18*faceLight);
+      body=mix(body,shallowColor,.13+.09*sin(vWorld.x*.08+vWorld.z*.06));
+
+      vec3 col=mix(body,reflectedSky,.24+.62*fres);
+
+      // Warm broken sun glints.
       vec3 sunDir=normalize(vec3(-.40,.76,-.50));
-      float specWide=pow(max(dot(reflect(-sunDir,n),viewDir),0.0),28.0);
-      float specSharp=pow(max(dot(reflect(-sunDir,n),viewDir),0.0),105.0);
-      float ripple=.5+.5*sin(vWorld.x*2.35-vWorld.z*1.72+uTime*2.10);
-      float ripple2=.5+.5*sin(vWorld.x*1.15+vWorld.z*2.62-uTime*1.72+1.2);
-      float crest=smoothstep(.73,.98,ripple*.55+ripple2*.45);
-      float shimmer=pow(max(0.0,ripple*ripple2),11.0);
-      vec3 c=mix(deepColor,midColor,.50+.18*vWave);
-      c=mix(c,brightColor,crest*.24);
-      c=mix(c,skyColor,.20+.50*fres);
-      c+=sunColor*(specWide*.31+specSharp*1.05+shimmer*.095);
-      // A soft turquoise lift near flatter faces makes the marina water visibly blue-green from gameplay height.
-      c+=vec3(.00,.065,.075)*(1.0-fres);
-      gl_FragColor=vec4(c,1.0);
+      float rdot=max(dot(reflect(-sunDir,n),viewDir),0.0);
+      float specWide=pow(rdot,30.0);
+      float specTight=pow(rdot,145.0);
+
+      float glitter1=.5+.5*sin(vWorld.x*3.15-vWorld.z*2.10+uTime*2.55);
+      float glitter2=.5+.5*sin(vWorld.x*5.00+vWorld.z*3.80-uTime*2.05+1.2);
+      float glitter=pow(max(0.0,glitter1*glitter2),15.0);
+
+      col+=sunColor*(specWide*.26+specTight*1.25+glitter*.075);
+
+      // Very occasional small crest highlights, not ocean whitecaps.
+      float foamNoise=.5+.5*sin(vWorld.x*3.7+vWorld.z*4.4+uTime*2.4);
+      float foam=vCrest*smoothstep(.76,.98,foamNoise)*.32;
+      col=mix(col,foamColor,foam);
+
+      // Slight color lift on flatter faces for clear blue-green marina water.
+      col+=vec3(.00,.033,.040)*(1.0-fres);
+
+      gl_FragColor=vec4(col,1.0);
     }`
 });
 const water=new THREE.Mesh(waterGeo,waterMat);water.position.y=-.42;water.receiveShadow=true;scene.add(water);
@@ -1252,8 +1348,8 @@ const reflectionMat=new THREE.ShaderMaterial({
     gl_FragColor=vec4(1.0,.63,.31,a);
   }`
 });
-const sunsetReflection=new THREE.Mesh(new THREE.PlaneGeometry(12.0,88),reflectionMat);
-sunsetReflection.rotation.x=-Math.PI/2;sunsetReflection.position.set(-9,-.390,-18);sunsetReflection.rotation.z=.045;scene.add(sunsetReflection);
+const sunsetReflection=new THREE.Mesh(new THREE.PlaneGeometry(8.5,78),reflectionMat);
+sunsetReflection.rotation.x=-Math.PI/2;sunsetReflection.position.set(-10,-.392,-20);sunsetReflection.rotation.z=.045;scene.add(sunsetReflection);
 
 // Procedural Florida-style marina dock.
 // Built from lightweight repeated geometry instead of a giant AI dock mesh.
@@ -1546,11 +1642,11 @@ function getWalkSurfaceY(x,z){
 function isOnDock(x,z){return getWalkSurfaceY(x,z)!==null;}
 
 // Sky deco
-const sunGlow=new THREE.Mesh(new THREE.SphereGeometry(7.2,28,18),new THREE.MeshBasicMaterial({color:0xff9c5d,transparent:true,opacity:.20,depthWrite:false,blending:THREE.AdditiveBlending}));
+const sunGlow=new THREE.Mesh(new THREE.SphereGeometry(8.5,28,18),new THREE.MeshBasicMaterial({color:0xffa45d,transparent:true,opacity:.13,depthWrite:false,blending:THREE.AdditiveBlending}));
 sunGlow.position.set(-31,10.5,-72);scene.add(sunGlow);
-const sunHalo=new THREE.Mesh(new THREE.SphereGeometry(11.5,28,18),new THREE.MeshBasicMaterial({color:0xffb66f,transparent:true,opacity:.065,depthWrite:false,blending:THREE.AdditiveBlending}));
+const sunHalo=new THREE.Mesh(new THREE.SphereGeometry(14.0,28,18),new THREE.MeshBasicMaterial({color:0xffca86,transparent:true,opacity:.045,depthWrite:false,blending:THREE.AdditiveBlending}));
 sunHalo.position.copy(sunGlow.position);scene.add(sunHalo);
-const sunDisc=new THREE.Mesh(new THREE.SphereGeometry(2.35,28,18),new THREE.MeshBasicMaterial({color:0xfff2c0}));
+const sunDisc=new THREE.Mesh(new THREE.SphereGeometry(2.15,28,18),new THREE.MeshBasicMaterial({color:0xfff5cf}));
 sunDisc.position.set(-31,10.5,-71.4);scene.add(sunDisc);
 
 // Layered Florida cumulus clouds — still procedural/lightweight, but with actual shaded undersides.
@@ -1572,9 +1668,9 @@ const cloudGroup=new THREE.Group();scene.add(cloudGroup);
   [-91,17,-34,42,14,.60],[88,24,7,39,13,.58],[-55,29,74,45,15,.62],[41,23,88,41,14,.57],
   [-7,18,-70,31,11,.58],[73,17,54,33,11,.53],[-76,14,43,34,11,.50],[10,35,59,35,12,.48]
 ].forEach(([x,y,z,w,h,o],i)=>{
-  const sm=new THREE.SpriteMaterial({map:cloudShadowTexture,transparent:true,opacity:o*.56,depthWrite:false,color:0xb4c7ce});
+  const sm=new THREE.SpriteMaterial({map:cloudShadowTexture,transparent:true,opacity:o*.48,depthWrite:false,color:0x9fb5c1});
   const sh=new THREE.Sprite(sm);sh.position.set(x+1.3,y-.85,z+.35);sh.scale.set(w*1.03,h*.92,1);cloudGroup.add(sh);
-  const m=new THREE.SpriteMaterial({map:cloudTexture,transparent:true,opacity:o,depthWrite:false,color:i%3===0?0xfff8ef:0xffffff});
+  const m=new THREE.SpriteMaterial({map:cloudTexture,transparent:true,opacity:o,depthWrite:false,color:i%3===0?0xfff0df:0xf8fcff});
   const sp=new THREE.Sprite(m);sp.position.set(x,y,z);sp.scale.set(w,h,1);cloudGroup.add(sp);
 });
 
@@ -3892,8 +3988,9 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
  skyUniforms.uTime.value=time;
  waterUniforms.uTime.value=time;
  reflectionUniforms.uTime.value=time;
- cloudGroup.position.x=Math.sin(time*.018)*1.8;
- cloudGroup.position.z=Math.cos(time*.013)*.8;
+ cloudGroup.position.x=Math.sin(time*.014)*2.5;
+ cloudGroup.position.z=Math.cos(time*.011)*1.25;
+ cloudGroup.rotation.y=Math.sin(time*.0045)*.010;
  updateRain(dt,time);
  if(actor&&mixer){
    const mv=(callState.active||firstJobState.cutscenePlaying||arrivalState.cutscenePlaying||serviceState.active)?new THREE.Vector2(0,0):movementVector();const moving=mv.lengthSq()>.004;const running=(keys.ShiftLeft||keys.ShiftRight||controller.mobileRunHeld||controller.runToggle);multiplayer.localMoving=moving;multiplayer.localRunning=running;

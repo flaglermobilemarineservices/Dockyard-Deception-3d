@@ -1,11 +1,18 @@
-Dockyard Deception v18.19.3 — Gear Oil Pan Fix
+Dockyard Deception v18.20 — Water + Sky Visual Pass
 
 Replace only index.html in the repo root.
 
-Changes:
-- Drain pan made moderately smaller.
-- Gear-oil drain does not start from a random tap anymore.
-- You must actually touch/grab the pan to start and to move it.
-- Tapping elsewhere shows GRAB THE PAN and does not teleport the pan.
-- Catch zone is recentered/tightened to match the smaller visible pan.
-- Missing the pan still spills oil and can fail the step.
+Visual changes:
+- richer humid Florida sky with more atmospheric blue depth and cleaner horizon haze
+- localized warm late-afternoon glow instead of an orange wash
+- more natural sun halo and softer sun disc
+- thin high cirrus detail added to the sky shader
+- water now has directional rolling chop instead of uniform sine waves
+- stronger sky reflection/Fresnel response
+- more convincing blue-green marina body color
+- broken warm sun sparkle across the water
+- subtle crest highlights
+- slightly denser water mesh, still kept mobile-friendly
+- cloud shading and drift improved for more depth
+
+No gameplay logic changed in this update.
