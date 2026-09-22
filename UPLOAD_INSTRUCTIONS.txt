@@ -1,10 +1,14 @@
-Dockyard Deception v18.19.1 — Gear Oil Spill Fix
+Dockyard Deception v18.19.2
 
-Replace only index.html in the repo root.
+Replace ONLY index.html in the repo root.
 
-Fix:
-- Gear oil now keeps draining continuously even when the pan misses.
-- Missing oil visibly creates a growing dark spill.
-- Spill meter rises based on actual missed drain time.
-- 40% spilled oil fails the catch step.
-- The drain can only complete after the full oil-drain cycle finishes.
+Changes:
+- Spark-plug torque target is slightly easier to hit (wider success zone and less sensitive swipe strength).
+- Gear oil will NOT start draining until the player touches/grabs the pan.
+- Bubble purge button stays gray until needed, then lights green and says TAP AND HOLD.
+- Purge mistakes now add time and bubbles:
+  • tapping too early = +2.5 sec
+  • releasing too soon = +2 sec
+  • missing the lit-button window = +3 sec
+- Incoming customer calls now have an audible repeating ringtone plus vibration.
+- 1-in-50 chance the oil filter is stuck; stuck filters require 8 harder swipes to break loose.

@@ -203,13 +203,17 @@
 #bubbleStatus{font-weight:1000;font-size:17px;color:#dff8ff}
 #bubbleTimer{margin-top:4px;font-size:13px;color:#9eddec}
 #purgePumpButton{
-  margin-top:10px;min-width:150px;min-height:48px;border-radius:13px;
-  border:2px solid #d8edf2;background:#245e74;color:#fff;font-weight:1000;
-  font-size:16px;touch-action:manipulation
+  margin-top:10px;min-width:170px;min-height:48px;border-radius:13px;
+  border:2px solid #6f7b80;background:#4a5155;color:#bcc5c9;font-weight:1000;
+  font-size:16px;touch-action:none;user-select:none
 }
 #purgePumpButton.needPump{
-  animation:purgePulse .55s ease-in-out infinite alternate;
-  border-color:#ffe06f;background:#795b14;color:#fff6b3
+  animation:purgePulse .48s ease-in-out infinite alternate;
+  border-color:#9dffae;background:#16743a;color:#effff3;
+  box-shadow:0 0 18px rgba(90,255,140,.45)
+}
+#purgePumpButton.purgeMistake{
+  border-color:#ff8177;background:#762820;color:#ffe7e4;
 }
 @keyframes purgePulse{from{transform:scale(.96)}to{transform:scale(1.05)}}
 
@@ -529,7 +533,7 @@ body.gage-player [data-action="backflip"],body.gage-player [data-action="breakda
 #torqueMeterWrap.show{display:block}
 #torqueMeter{position:relative;height:18px;border-radius:999px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.28);overflow:hidden}
 #torqueFill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#5ac2e7,#ffe36f,#ff786d)}
-#torqueTarget{position:absolute;top:0;bottom:0;width:16%;transform:translateX(-50%);border:2px solid #8dffae;background:rgba(93,255,145,.23);box-sizing:border-box;border-radius:999px}
+#torqueTarget{position:absolute;top:0;bottom:0;width:22%;transform:translateX(-50%);border:2px solid #8dffae;background:rgba(93,255,145,.23);box-sizing:border-box;border-radius:999px}
 #torqueNeedle{position:absolute;top:-4px;bottom:-4px;width:3px;background:#fff;box-shadow:0 0 8px rgba(255,255,255,.8);left:0}
 #torqueLabels{display:flex;justify-content:space-between;margin-top:3px;font-size:10px;color:#cfe7ee;font-weight:900}
 
@@ -1735,10 +1739,10 @@ const serviceState={
   active:false,step:'none',motorTilt:.38,
   screwsRemoved:{top:false,bottom:false},
   install:{top:false,bottom:false},
-  pumpTaps:0,drainProgress:0,catchProgress:0,spill:0,panX:.5,wind:0,
+  pumpTaps:0,drainProgress:0,catchProgress:0,spill:0,panX:.5,wind:0,catchStarted:false,
   oilLoop:0,lastOilTime:0,cardTimer:0,
   purgeDuration:0,purgeStart:0,purgeEnd:0,nextPurgePump:0,
-  purgeNeedPump:false,purgePumpDeadline:0,purgePumps:0,bubbleLoop:0
+  purgeNeedPump:false,purgePumpDeadline:0,purgePumps:0,bubbleLoop:0,purgeHolding:false,purgeHoldStart:0,purgeDeadlinePenalized:false,purgePenalty:0
 ,
   engineOil:{
     active:false,frontLatch:false,rearLatch:false,
@@ -1748,7 +1752,7 @@ const serviceState={
     vacuum:100,extracted:0,extractLoop:0,lastExtractTime:0,
     filterTurns:0,gestureStartX:0,gestureTracking:false,gasketOiled:false,
     funnelPicked:false,funnelInstalled:false,freshOil:0,pouring:false,pourLoop:0,
-    filterInstalled:false,fillCapRemoved:false
+    filterInstalled:false,fillCapRemoved:false,filterStuck:false
   },
   spark:{active:false,plug:1,total:6,phase:'remove',swipes:0,wrong:0,startX:0,tracking:false,paid:false,removeTarget:1,installTarget:1,removeSeq:[],installSeq:[],seqIndex:0,torqueTarget:60,torqueValue:0,torqueMisses:0,extractTaps:0}
 };
@@ -2267,10 +2271,10 @@ function stopGearOilPan3DLoop(){cancelAnimationFrame(gearOilPan3d.loop);gearOilP
 
 function startOilCatch(){
   clearServiceUI();serviceState.step='catch';
-  serviceState.drainProgress=0;serviceState.catchProgress=0;serviceState.spill=0;serviceState.panX=.5;serviceState.wind=0;
+  serviceState.drainProgress=0;serviceState.catchProgress=0;serviceState.spill=0;serviceState.panX=.5;serviceState.wind=0;serviceState.catchStarted=false;
   showServiceCardForFiveSeconds(
     'STEP 3 — CATCH THE OLD GEAR OIL',
-    'The oil keeps draining whether the pan is under it or not. <b>Miss the pan and it spills immediately.</b> The wind will push the stream sideways, so stay underneath it.',
+    'Put your finger on the pan to start the drain. Once you touch it, <b>the oil keeps draining whether you catch it or not.</b> Miss the stream and it spills immediately.',
     'DON’T LET THE SPILL METER HIT 40%',
     ()=>{
       oilCatchGame.style.display='block';
@@ -2281,6 +2285,8 @@ function startOilCatch(){
       oilDrainPoint.style.left='55%';
       oilStream.style.left='55%';
       oilStream.style.transform='translateX(-50%) rotate(0deg)';
+      oilStream.style.opacity='0';
+      catchReadout.textContent='PUT YOUR FINGER ON THE PAN TO START';
       spillFill.style.width='0%';
       if(oilSpillPuddle){
         oilSpillPuddle.style.opacity='0';
@@ -2307,6 +2313,12 @@ oilCatchGame.addEventListener('pointerdown',e=>{
   oilPanDragging=true;
   oilCatchGame.setPointerCapture?.(e.pointerId);
   movePanFromPointer(e);
+  if(!serviceState.catchStarted){
+    serviceState.catchStarted=true;
+    serviceState.lastOilTime=performance.now();
+    oilStream.style.opacity='1';
+    catchReadout.textContent='DRAIN: 0% • SPILL: 0%';
+  }
 });
 oilCatchGame.addEventListener('pointermove',e=>{
   if(oilPanDragging)movePanFromPointer(e);
@@ -2319,6 +2331,14 @@ oilCatchGame.addEventListener('pointercancel',()=>{oilPanDragging=false;});
 function runOilCatch(now){
   if(serviceState.step!=='catch')return;
   const dt=Math.min(.05,(now-serviceState.lastOilTime)/1000||.016);serviceState.lastOilTime=now;
+  if(!serviceState.catchStarted){
+    serviceState.wind=0;
+    oilStream.style.opacity='0';
+    windReadout.textContent='READY — TOUCH THE PAN';
+    serviceState.oilLoop=requestAnimationFrame(runOilCatch);
+    return;
+  }
+  oilStream.style.opacity='1';
   // Strong, shifting marina gusts, but the collision target now matches the VISIBLE oil stream.
   serviceState.wind=
     .78*Math.sin(now*.00185)+
@@ -2443,11 +2463,13 @@ function spawnBubble(){
 }
 
 function scheduleNextPurgePump(now){
-  // Random pattern: sometimes quick, sometimes several seconds between pumps.
+  // Random pattern: button stays gray until the exact maintenance-pump moment.
   serviceState.nextPurgePump=now+1700+Math.random()*4800;
   serviceState.purgeNeedPump=false;
-  purgePumpButton.classList.remove('needPump');
-  purgePumpButton.textContent='PUMP';
+  serviceState.purgeHolding=false;
+  serviceState.purgeDeadlinePenalized=false;
+  purgePumpButton.classList.remove('needPump','purgeMistake');
+  purgePumpButton.textContent='WAIT';
 }
 
 function startBubblePurge(){
@@ -2458,8 +2480,9 @@ function startBubblePurge(){
   serviceState.purgeStart=now;
   serviceState.purgeEnd=now+serviceState.purgeDuration*1000;
   serviceState.purgePumps=0;
+  serviceState.purgePenalty=0;serviceState.purgeHolding=false;serviceState.purgeDeadlinePenalized=false;
   bubbleWindow.innerHTML='';
-  purgePumpButton.style.display='';
+  purgePumpButton.style.display='';purgePumpButton.textContent='WAIT';purgePumpButton.classList.remove('needPump','purgeMistake');
   bubbleCheckPanel.style.display='block';
   bubbleStatus.textContent='CHECKING FOR AIR BUBBLES…';
   bubbleTimer.textContent='Watch the upper vent and keep slight pressure on the pump.';
@@ -2478,17 +2501,25 @@ function updateBubblePurge(now){
 
   if(!serviceState.purgeNeedPump && now>=serviceState.nextPurgePump && remaining>.7){
     serviceState.purgeNeedPump=true;
-    serviceState.purgePumpDeadline=now+3000;
+    serviceState.purgeHolding=false;
+    serviceState.purgeDeadlinePenalized=false;
+    serviceState.purgePumpDeadline=now+3200;
     purgePumpButton.classList.add('needPump');
-    purgePumpButton.textContent='PUMP NOW';
-    bubbleStatus.textContent='KEEP PRESSURE — PUMP ONCE';
+    purgePumpButton.textContent='TAP AND HOLD';
+    bubbleStatus.textContent='PRESSURE DROPPING — TAP AND HOLD';
   }
 
   if(serviceState.purgeNeedPump){
     // Completion pauses until the player gives the requested maintenance pump.
     if(now>=serviceState.purgeEnd)serviceState.purgeEnd=now+300;
-    if(now>serviceState.purgePumpDeadline){
-      bubbleTimer.textContent='Oil settled a little — pump once to keep it at the vent.';
+    if(now>serviceState.purgePumpDeadline && !serviceState.purgeHolding && !serviceState.purgeDeadlinePenalized){
+      serviceState.purgeDeadlinePenalized=true;
+      serviceState.purgePenalty++;
+      serviceState.purgeEnd+=3000;
+      serviceState.purgePumpDeadline=now+2600;
+      bubbleStatus.textContent='MISSED IT — +3 SEC';
+      bubbleTimer.textContent=`Penalty ${serviceState.purgePenalty} • Hold the lit button when it calls for pressure.`;
+      for(let i=0;i<4;i++)setTimeout(spawnBubble,i*90);
     }
   }else{
     remaining=Math.max(0,(serviceState.purgeEnd-now)/1000);
@@ -2509,22 +2540,47 @@ function updateBubblePurge(now){
   serviceState.bubbleLoop=requestAnimationFrame(updateBubblePurge);
 }
 
-purgePumpButton.addEventListener('click',()=>{
+function purgeMistake(message,seconds){
+  const now=performance.now();
+  serviceState.purgePenalty++;
+  serviceState.purgeEnd+=seconds*1000;
+  bubbleStatus.textContent=message;
+  bubbleTimer.textContent=`+${seconds.toFixed(1)} SEC PENALTY • Penalties: ${serviceState.purgePenalty}`;
+  purgePumpButton.classList.add('purgeMistake');
+  setTimeout(()=>purgePumpButton.classList.remove('purgeMistake'),320);
+  for(let i=0;i<3;i++)setTimeout(spawnBubble,i*100);
+}
+purgePumpButton.addEventListener('pointerdown',e=>{
   if(serviceState.step!=='bubblePurge')return;
-  serviceState.purgePumps++;
-  purgePumpButton.animate(
-    [{transform:'scale(1)'},{transform:'scale(.90)'},{transform:'scale(1)'}],
-    {duration:120}
-  );
-  if(serviceState.purgeNeedPump){
-    bubbleStatus.textContent='GOOD — KEEP WATCHING THE VENT';
-    scheduleNextPurgePump(performance.now());
-  }else{
-    // An extra pump can kick loose a couple small bubbles.
-    setTimeout(spawnBubble,40);
-    setTimeout(spawnBubble,180);
+  e.preventDefault();
+  if(!serviceState.purgeNeedPump){
+    purgeMistake('TOO EARLY — YOU STIRRED UP MORE AIR',2.5);
+    return;
   }
+  serviceState.purgeHolding=true;
+  serviceState.purgeHoldStart=performance.now();
+  purgePumpButton.textContent='HOLD…';
+  purgePumpButton.setPointerCapture?.(e.pointerId);
 });
+function finishPurgeHold(e){
+  if(serviceState.step!=='bubblePurge'||!serviceState.purgeHolding)return;
+  serviceState.purgeHolding=false;
+  const held=performance.now()-serviceState.purgeHoldStart;
+  try{purgePumpButton.releasePointerCapture?.(e.pointerId)}catch(_){}
+  if(held<650){
+    purgePumpButton.textContent='TAP AND HOLD';
+    purgeMistake('LET GO TOO SOON — HOLD IT LONGER',2.0);
+    serviceState.purgePumpDeadline=performance.now()+2400;
+    serviceState.purgeDeadlinePenalized=false;
+    return;
+  }
+  serviceState.purgePumps++;
+  purgePumpButton.animate([{transform:'scale(1)'},{transform:'scale(.90)'},{transform:'scale(1)'}],{duration:140});
+  bubbleStatus.textContent='GOOD HOLD ✓ — KEEP WATCHING THE VENT';
+  scheduleNextPurgePump(performance.now());
+}
+purgePumpButton.addEventListener('pointerup',finishPurgeHold);
+purgePumpButton.addEventListener('pointercancel',finishPurgeHold);
 
 function startInstallScrews(){
   clearServiceUI();serviceState.step='installScrews';
@@ -2678,7 +2734,7 @@ function resetEngineOilUI(){
   freshOilStream.classList.remove('pouring');
   extractVacuumFill.style.width='100%'; oldOilFill.style.width='0%';
   freshOilFill.style.width='0%'; dipstickOilLine.style.width='0%';
-  s.vacuum=100;s.extracted=0;s.filterTurns=0;s.gasketOiled=false;s.funnelPicked=false;s.funnelInstalled=false;s.freshOil=0;s.pouring=false;s.filterInstalled=false;s.fillCapRemoved=false;
+  s.vacuum=100;s.extracted=0;s.filterTurns=0;s.gasketOiled=false;s.filterStuck=false;s.funnelPicked=false;s.funnelInstalled=false;s.freshOil=0;s.pouring=false;s.filterInstalled=false;s.fillCapRemoved=false;
   cancelAnimationFrame(s.extractLoop);cancelAnimationFrame(s.pourLoop);
   setEngine3DStage('powerhead');
 }
@@ -2908,11 +2964,21 @@ function startOilExtraction(){
 }
 maintainVacuumBtn.addEventListener('click',()=>{if(serviceState.step!=='engineOilExtract')return;const s=serviceState.engineOil;s.vacuum=Math.min(100,s.vacuum+28);bumpEngineModel('extractor','pump');maintainVacuumBtn.animate([{transform:'scale(1)'},{transform:'scale(.92)'},{transform:'scale(1)'}],{duration:130})});
 function finishOilExtraction(){const s=serviceState.engineOil;cancelAnimationFrame(s.extractLoop);oilFlowTube.classList.remove('flowing');serviceState.step='engineOilFilterFind';engineOilStatus.textContent='OLD ENGINE OIL EXTRACTED ✓';jobBadge.textContent='ENGINE OIL: REPLACE FILTER';setEngine3DStage('filterBreak');hideOilWorkSubpanels();showOilWork('REPLACE THE OIL FILTER','Old oil is out. The <b>3D oil filter and filter wrench</b> are in view. Tap the highlighted filter to put the wrench on it.');filterHotspot.classList.add('show')}
-filterHotspot.addEventListener('click',()=>{if(serviceState.step!=='engineOilFilterFind')return;filterHotspot.classList.remove('show');startFilterGesture('engineOilFilterBreak',3,'LEFT','Break the old filter loose with the filter wrench.','FILTER WRENCH — SWIPE LEFT')});
-function startFilterGesture(step,turns,dir,text,label){const s=serviceState.engineOil;serviceState.step=step;s.filterTurns=0;hideOilWorkSubpanels();showOilWork(label,text);filterGesturePad.classList.add('active');filterGestureArrow.textContent=dir==='LEFT'?'←':'→';filterCount.textContent=`0 / ${turns} ${dir} SWIPES`;filterGesturePad.dataset.goal=turns;filterGesturePad.dataset.dir=dir;setEngine3DStage(step==='engineOilFilterBreak'?'filterBreak':step==='engineOilFilterInstall'?'filterInstall':'filterSpin')}
+filterHotspot.addEventListener('click',()=>{
+  if(serviceState.step!=='engineOilFilterFind')return;
+  filterHotspot.classList.remove('show');
+  const s=serviceState.engineOil;
+  s.filterStuck=(Math.floor(Math.random()*50)===0); // 1 in 50
+  if(s.filterStuck){
+    startFilterGesture('engineOilFilterBreak',8,'LEFT','This filter is STUCK. Use longer, harder left swipes with the filter wrench until it breaks loose.','STUCK FILTER 😬 — LEAN ON IT',58);
+  }else{
+    startFilterGesture('engineOilFilterBreak',3,'LEFT','Break the old filter loose with the filter wrench.','FILTER WRENCH — SWIPE LEFT',38);
+  }
+});
+function startFilterGesture(step,turns,dir,text,label,minSwipe=38){const s=serviceState.engineOil;serviceState.step=step;s.filterTurns=0;hideOilWorkSubpanels();showOilWork(label,text);filterGesturePad.classList.add('active');filterGestureArrow.textContent=dir==='LEFT'?'←':'→';filterCount.textContent=`0 / ${turns} ${dir} SWIPES`;filterGesturePad.dataset.goal=turns;filterGesturePad.dataset.dir=dir;filterGesturePad.dataset.minSwipe=minSwipe;setEngine3DStage(step==='engineOilFilterBreak'?'filterBreak':step==='engineOilFilterInstall'?'filterInstall':'filterSpin')}
 filterGesturePad.addEventListener('pointerdown',e=>{if(!filterGesturePad.classList.contains('active'))return;const s=serviceState.engineOil;s.gestureTracking=true;s.gestureStartX=e.clientX;filterGesturePad.setPointerCapture?.(e.pointerId)});
-filterGesturePad.addEventListener('pointerup',e=>{const s=serviceState.engineOil;if(!s.gestureTracking)return;s.gestureTracking=false;const dx=e.clientX-s.gestureStartX;if(Math.abs(dx)<38){oilWorkFeedback.textContent='MAKE A BIGGER SWIPE';return}const want=filterGesturePad.dataset.dir;const got=dx<0?'LEFT':'RIGHT';if(got!==want){oilWorkFeedback.textContent='OTHER WAY';oilWorkFeedback.style.color='#ffcf7c';return}s.filterTurns++;const goal=Number(filterGesturePad.dataset.goal)||3;filterCount.textContent=`${s.filterTurns} / ${goal} ${want} SWIPES`;oilWorkFeedback.textContent='GOOD TURN ✓';oilWorkFeedback.style.color='#83efb1';bumpEngineModel(serviceState.step==='engineOilFilterBreak'?'wrench':'filter','turn');if(s.filterTurns>=goal)setTimeout(completeFilterGesture,180)});
-function completeFilterGesture(){const step=serviceState.step;if(step==='engineOilFilterBreak'){startFilterGesture('engineOilFilterSpin',4,'LEFT','The filter is loose. Spin it the rest of the way off by hand.','SPIN OLD FILTER OFF')}else if(step==='engineOilFilterSpin'){startFilterPrep()}else if(step==='engineOilFilterInstall'){finishFilterInstall()}}
+filterGesturePad.addEventListener('pointerup',e=>{const s=serviceState.engineOil;if(!s.gestureTracking)return;s.gestureTracking=false;const dx=e.clientX-s.gestureStartX;const minSwipe=Number(filterGesturePad.dataset.minSwipe)||38;if(Math.abs(dx)<minSwipe){oilWorkFeedback.textContent=s.filterStuck?'STUCK FILTER — PULL HARDER':'MAKE A BIGGER SWIPE';return}const want=filterGesturePad.dataset.dir;const got=dx<0?'LEFT':'RIGHT';if(got!==want){oilWorkFeedback.textContent='OTHER WAY';oilWorkFeedback.style.color='#ffcf7c';return}s.filterTurns++;const goal=Number(filterGesturePad.dataset.goal)||3;filterCount.textContent=`${s.filterTurns} / ${goal} ${want} SWIPES`;oilWorkFeedback.textContent='GOOD TURN ✓';oilWorkFeedback.style.color='#83efb1';bumpEngineModel(serviceState.step==='engineOilFilterBreak'?'wrench':'filter','turn');if(s.filterTurns>=goal)setTimeout(completeFilterGesture,180)});
+function completeFilterGesture(){const step=serviceState.step;if(step==='engineOilFilterBreak'){const wasStuck=serviceState.engineOil.filterStuck;serviceState.engineOil.filterStuck=false;startFilterGesture('engineOilFilterSpin',4,'LEFT',wasStuck?'FINALLY — it broke loose. Spin the stubborn bastard the rest of the way off by hand.':'The filter is loose. Spin it the rest of the way off by hand.','SPIN OLD FILTER OFF')}else if(step==='engineOilFilterSpin'){startFilterPrep()}else if(step==='engineOilFilterInstall'){finishFilterInstall()}}
 function startFilterPrep(){
   const s=serviceState.engineOil;
   serviceState.step='engineOilFilterPrep';s.gasketOiled=true;
@@ -3023,11 +3089,11 @@ sparkSwipePad.addEventListener('pointerup',e=>{
   s.wrong=0;
   if(s.phase==='torque'){
     // Map swipe length to a visible 0–100 torque reading.
-    const torque=Math.max(0,Math.min(100,Math.round((mag-42)/2.05)));
+    const torque=Math.max(0,Math.min(100,Math.round((mag-42)/2.25)));
     s.torqueValue=torque;updateTorqueMeter(torque);
     const delta=torque-s.torqueTarget;
-    if(delta>13){startBrokenPlugExtraction(torque,s.torqueTarget);return}
-    if(Math.abs(delta)<=7){sparkFeedback.style.color='#83efb1';sparkFeedback.textContent=`TORQUE MATCH ${torque} ✓`;setTimeout(completeSparkPlug,520);return}
+    if(delta>20){startBrokenPlugExtraction(torque,s.torqueTarget);return}
+    if(Math.abs(delta)<=11){sparkFeedback.style.color='#83efb1';sparkFeedback.textContent=`TORQUE MATCH ${torque} ✓`;setTimeout(completeSparkPlug,520);return}
     s.torqueMisses++;sparkFeedback.style.color='#ffcf7c';sparkFeedback.textContent=delta<0?`TOO LOW ${torque} • TARGET ${s.torqueTarget}`:`TOO HIGH ${torque} • TARGET ${s.torqueTarget}`;
     if(s.torqueMisses>=3){failSparkPlug(`Missed the torque target three times. Target was ${s.torqueTarget}. Retry this plug.`)}
     return;
@@ -3187,6 +3253,38 @@ async function playArrivalCutscene(){
 arrivalCutsceneVideo.addEventListener('ended',finishArrivalCutscene);
 skipArrivalCutscene.addEventListener('click',finishArrivalCutscene);
 
+
+let phoneRingTimer=0,phoneRingCtx=null;
+function ringToneAt(ctx,when,freq,dur=.16){
+  try{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine';o.frequency.setValueAtTime(freq,when);
+    g.gain.setValueAtTime(.0001,when);
+    g.gain.exponentialRampToValueAtTime(.12,when+.015);
+    g.gain.exponentialRampToValueAtTime(.0001,when+dur);
+    o.connect(g);g.connect(ctx.destination);o.start(when);o.stop(when+dur+.03);
+  }catch(e){}
+}
+function phoneRingBurst(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC)return;
+    phoneRingCtx=phoneRingCtx||new AC();
+    phoneRingCtx.resume?.();
+    const t=phoneRingCtx.currentTime+.02;
+    ringToneAt(phoneRingCtx,t,820,.18);ringToneAt(phoneRingCtx,t+.22,660,.18);
+    ringToneAt(phoneRingCtx,t+.55,820,.18);ringToneAt(phoneRingCtx,t+.77,660,.18);
+  }catch(e){}
+}
+function startPhoneRingtone(){
+  stopPhoneRingtone();
+  phoneRingBurst();
+  phoneRingTimer=setInterval(phoneRingBurst,2200);
+}
+function stopPhoneRingtone(){
+  clearInterval(phoneRingTimer);phoneRingTimer=0;
+}
+
 function showCustomerCall(force=false){
   if(!phoneRoot || callState.active) return;
   if(callState.triggered && !force) return;
@@ -3197,6 +3295,7 @@ function showCustomerCall(force=false){
   phoneRoot.visible=true;
   animStatus.textContent='Customer calling — annual service';
   jobBadge.textContent='INCOMING CALL';
+  startPhoneRingtone();
   try{navigator.vibrate?.([240,120,240,120,360]);}catch(e){}
 }
 
@@ -3214,6 +3313,7 @@ function handleFirstJobDecline(){
 }
 function resolveCustomerCall(accepted){
   if(!callState.active) return;
+  stopPhoneRingtone();
   callState.active=false;
   callState.accepted=accepted;
   if(accepted)setMusicScene('job1',true);
