@@ -1,118 +1,779 @@
-/**
- * Dockside Deception Halloween asset helpers.
- *
- * This file intentionally does not import Three.js or GLTFLoader. Pass the
- * game's existing GLTFLoader instance into the model/animation helpers.
- */
+/* Dockyard Deception Halloween mode — 2026-09-22
+   Load this AFTER the main game's inline script.
+   It reuses the existing Three.js scene, Rick/Gage controllers, GLTF loader and music system. */
+(function(){
+  'use strict';
+  if(window.__DOCKYARD_HALLOWEEN_ACTIVE)return;
+  window.__DOCKYARD_HALLOWEEN_ACTIVE=true;
 
-export const HALLOWEEN_ASSETS = Object.freeze({
-  music: "./boat-daddy-rick.mp3",
-  pumpkinTotem: "./pumpkin-totem.glb",
-  deathAnimation: "./rick-gage-dead.glb",
-});
-
-let halloweenMusic = null;
-
-/**
- * Call this from the same click/tap that starts the game. Browsers normally
- * block autoplay until the player interacts with the page.
- */
-export async function startHalloweenMusic({ volume = 0.55, loop = true } = {}) {
-  if (!halloweenMusic) {
-    halloweenMusic = new Audio(HALLOWEEN_ASSETS.music);
-    halloweenMusic.preload = "auto";
-  }
-
-  halloweenMusic.loop = loop;
-  halloweenMusic.volume = Math.max(0, Math.min(1, volume));
-
-  try {
-    await halloweenMusic.play();
-    return halloweenMusic;
-  } catch (error) {
-    console.warn("Halloween music could not start until another player tap.", error);
-    return null;
-  }
-}
-
-export function stopHalloweenMusic({ reset = false } = {}) {
-  if (!halloweenMusic) return;
-  halloweenMusic.pause();
-  if (reset) halloweenMusic.currentTime = 0;
-}
-
-export function setHalloweenMusicMuted(muted) {
-  if (halloweenMusic) halloweenMusic.muted = Boolean(muted);
-}
-
-function loadGLTF(loader, url) {
-  return new Promise((resolve, reject) => {
-    loader.load(url, resolve, undefined, reject);
-  });
-}
-
-/**
- * Loads one pumpkin totem and adds it to the supplied Three.js scene.
- */
-export async function addPumpkinTotem({
-  loader,
-  scene,
-  position = { x: 0, y: 0, z: 0 },
-  rotationY = 0,
-  scale = 1,
-  castShadow = true,
-  receiveShadow = true,
-} = {}) {
-  if (!loader || !scene) {
-    throw new Error("addPumpkinTotem requires both loader and scene.");
-  }
-
-  const gltf = await loadGLTF(loader, HALLOWEEN_ASSETS.pumpkinTotem);
-  const model = gltf.scene;
-
-  model.position.set(position.x ?? 0, position.y ?? 0, position.z ?? 0);
-  model.rotation.y = rotationY;
-  model.scale.setScalar(scale);
-  model.name = "HalloweenPumpkinTotem";
-
-  model.traverse((object) => {
-    if (!object.isMesh) return;
-    object.castShadow = castShadow;
-    object.receiveShadow = receiveShadow;
-  });
-
-  scene.add(model);
-  return model;
-}
-
-/**
- * Loads the GLB containing the two included death clips: Dead and Dead.001.
- * Retarget the chosen clip to Rick/Gage with the same retargeting method used
- * for the other Mixamo/Meshy animations in the game.
- */
-export async function loadDeathAnimationSource({ loader } = {}) {
-  if (!loader) throw new Error("loadDeathAnimationSource requires a GLTFLoader.");
-
-  const gltf = await loadGLTF(loader, HALLOWEEN_ASSETS.deathAnimation);
-  const preferredClip =
-    gltf.animations.find((clip) => clip.name === "Dead") ?? gltf.animations[0] ?? null;
-
-  return {
-    sourceScene: gltf.scene,
-    animations: gltf.animations,
-    preferredClip,
+  const H=window.DOCKYARD_HALLOWEEN={
+    wave:0,rickHP:100,gageHP:100,rickDown:false,gageDown:false,
+    enemies:[],started:false,nextGageHit:0,nextRickHit:0,
+    gagePunchAction:null
   };
-}
 
-/**
- * Use after creating an AnimationAction for the death clip.
- * It plays once and freezes on the final pose.
- */
-export function configureDeathAction(action, THREE) {
-  if (!action || !THREE) return action;
-  action.reset();
-  action.setLoop(THREE.LoopOnce, 1);
-  action.clampWhenFinished = true;
-  action.enabled = true;
-  return action;
-}
+  function addStyles(){
+    const s=document.createElement('style');
+    s.textContent=
+      '#halloweenHud{position:absolute;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:126;width:min(390px,62vw);pointer-events:none;font-family:Inter,system-ui,Arial,sans-serif}'+
+      '#halloweenHud .hhCard{background:rgba(3,5,12,.82);border:1px solid rgba(220,225,255,.35);border-radius:14px;padding:8px 10px;box-shadow:0 10px 32px rgba(0,0,0,.45);backdrop-filter:blur(7px)}'+
+      '#halloweenHud .hhRow{display:grid;grid-template-columns:52px 1fr 42px;gap:7px;align-items:center;margin:4px 0;font-size:11px;font-weight:1000}'+
+      '#halloweenHud .hhTrack{height:10px;border-radius:999px;background:#24131a;overflow:hidden;border:1px solid rgba(255,255,255,.18)}'+
+      '#halloweenHud .hhFill{height:100%;width:100%;transform-origin:left center;background:linear-gradient(90deg,#51d36f,#cfe95b)}'+
+      '#gageHealthFill{background:linear-gradient(90deg,#5ab8ff,#8ce8ff)!important}'+
+      '#halloweenWave{text-align:center;margin-top:5px;font-size:10px;font-weight:1000;letter-spacing:.08em;color:#f3d7ff}'+
+      '#halloweenPunchBtn{background:rgba(112,34,38,.94)!important;border-color:rgba(255,150,150,.7)!important;opacity:.94!important}'+
+      '@media(pointer:coarse){#halloweenHud{top:max(8px,env(safe-area-inset-top));width:min(360px,64vw)}#halloweenHud .hhCard{padding:6px 8px}#halloweenHud .hhRow{font-size:10px}}';
+    document.head.appendChild(s);
+  }
+
+  function addHud(){
+    const hud=document.createElement('div');
+    hud.id='halloweenHud';
+    hud.innerHTML='<div class="hhCard">'+
+      '<div class="hhRow"><span>RICK</span><div class="hhTrack"><div class="hhFill" id="rickHealthFill"></div></div><span id="rickHealthText">100</span></div>'+
+      '<div class="hhRow"><span>GAGE</span><div class="hhTrack"><div class="hhFill" id="gageHealthFill"></div></div><span id="gageHealthText">100</span></div>'+
+      '<div id="halloweenWave">HALLOWEEN NIGHT • GET READY</div></div>';
+    document.body.appendChild(hud);
+    updateHud();
+  }
+
+  function updateHud(){
+    const r=document.getElementById('rickHealthFill'),g=document.getElementById('gageHealthFill');
+    const rt=document.getElementById('rickHealthText'),gt=document.getElementById('gageHealthText');
+    if(r)r.style.width=Math.max(0,H.rickHP)+'%';
+    if(g)g.style.width=Math.max(0,H.gageHP)+'%';
+    if(rt)rt.textContent=Math.round(H.rickHP);
+    if(gt)gt.textContent=Math.round(H.gageHP);
+  }
+  function setWaveText(t){const e=document.getElementById('halloweenWave');if(e)e.textContent=t}
+
+  function applyNight(){
+    try{
+      scene.background=new THREE.Color(0x01040b);
+      if(scene.fog){scene.fog.color.set(0x07101b);scene.fog.density=.0032}
+      renderer.toneMappingExposure=.58;
+
+      if(typeof skyUniforms!=='undefined'){
+        skyUniforms.zenithColor.value.set(0x020612);
+        skyUniforms.upperColor.value.set(0x07152d);
+        skyUniforms.horizonColor.value.set(0x10243c);
+        skyUniforms.warmColor.value.set(0x2b2440);
+        skyUniforms.hazeColor.value.set(0x142033);
+      }
+      if(typeof waterUniforms!=='undefined'){
+        waterUniforms.deepColor.value.set(0x010b17);
+        waterUniforms.midColor.value.set(0x031b2b);
+        waterUniforms.shallowColor.value.set(0x062d3c);
+        waterUniforms.horizonColor.value.set(0x0c2236);
+        waterUniforms.skyTop.value.set(0x07152d);
+        waterUniforms.sunColor.value.set(0x7186a8);
+      }
+
+      scene.traverse(o=>{
+        if(o.isHemisphereLight)o.intensity=Math.min(o.intensity,.28);
+        if(o.isAmbientLight)o.intensity=Math.min(o.intensity,.18);
+      });
+      if(typeof sun!=='undefined'){
+        sun.intensity=.28;
+        sun.color.set(0x9fb7d8);
+        sun.position.set(-24,30,-18);
+      }
+
+      const moon=new THREE.DirectionalLight(0xa9c7ff,1.25);
+      moon.position.set(20,32,10);
+      moon.castShadow=true;
+      scene.add(moon);
+      scene.add(new THREE.AmbientLight(0x152341,.22));
+
+      const starPos=[];
+      for(let i=0;i<420;i++){
+        const a=Math.random()*Math.PI*2,y=18+Math.random()*92,rr=120+Math.random()*35;
+        starPos.push(Math.cos(a)*rr,y,Math.sin(a)*rr);
+      }
+      const sg=new THREE.BufferGeometry();
+      sg.setAttribute('position',new THREE.Float32BufferAttribute(starPos,3));
+      scene.add(new THREE.Points(
+        sg,
+        new THREE.PointsMaterial({color:0xffffff,size:.18,transparent:true,opacity:.82,depthWrite:false})
+      ));
+    }catch(e){console.warn('Halloween night setup:',e)}
+  }
+
+  function makeWeb(x,y,z,ry,scale){
+    const pts=[],spokes=9,rings=4,maxR=.72;
+    for(let i=0;i<spokes;i++){
+      const a=i/spokes*Math.PI*2;
+      pts.push(0,0,0,Math.cos(a)*maxR,Math.sin(a)*maxR,0);
+    }
+    for(let r=1;r<=rings;r++){
+      const rad=maxR*r/rings;
+      for(let i=0;i<spokes;i++){
+        const a=i/spokes*Math.PI*2,b=(i+1)/spokes*Math.PI*2;
+        pts.push(Math.cos(a)*rad,Math.sin(a)*rad,0,Math.cos(b)*rad,Math.sin(b)*rad,0);
+      }
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+    const web=new THREE.LineSegments(
+      geo,
+      new THREE.LineBasicMaterial({color:0xe8eef6,transparent:true,opacity:.55,depthWrite:false})
+    );
+    web.position.set(x,y,z);
+    web.rotation.y=ry;
+    web.rotation.z=(Math.random()-.5)*.35;
+    web.scale.setScalar(scale);
+    scene.add(web);
+    return web;
+  }
+
+  function addWebs(){
+    makeWeb(-6.25,1.55,-14,0,.95);
+    makeWeb(6.25,1.45,4,Math.PI,.8);
+    makeWeb(-6.25,1.65,13,.2,1.05);
+    makeWeb(19.9,1.5,5,Math.PI/2,.9);
+    makeWeb(.8,1.8,22,Math.PI/2,.72);
+  }
+
+  function addPumpkins(){
+    try{
+      gltfLoader.load('pumpkin-totem.glb',g=>{
+        const base=g.scene;
+        const box=new THREE.Box3().setFromObject(base),size=new THREE.Vector3();
+        box.getSize(size);
+        const s=1.75/Math.max(.001,size.y);
+        base.scale.setScalar(s);
+        base.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
+        const spots=[[6.35,-23],[-6.35,13],[20,5]];
+        spots.forEach((p,i)=>{
+          const clone=i===0?base:base.clone(true);
+          const y=getWalkSurfaceY(p[0],p[1]);
+          clone.position.set(p[0],y===null?.18:y,p[1]);
+          clone.rotation.y=i*1.7+.35;
+          scene.add(clone);
+        });
+      },undefined,()=>{});
+    }catch(e){}
+  }
+
+  function setupMusic(){
+    try{
+      if(typeof musicPlaylist==='undefined'||typeof playMusicIndex!=='function')return;
+
+      const intro=new Audio('boat-daddy-rick.mp3');
+      intro.preload='auto';
+      intro.playsInline=true;
+      intro.loop=false;
+
+      musicPlaylist.unshift(intro);
+      musicPlaylist.forEach(a=>{
+        a.loop=false;
+        a.preload='auto';
+        a.playsInline=true;
+      });
+
+      musicIndex=0;
+
+      playMusicIndex=async function(i,reset){
+        musicIndex=(i+musicPlaylist.length)%musicPlaylist.length;
+        const a=musicPlaylist[musicIndex];
+
+        musicPlaylist.forEach(t=>{if(t!==a)t.pause()});
+        if(reset){try{a.currentTime=0}catch(e){}}
+
+        if(typeof setMusicVolume==='function')setMusicVolume(musicVolume);
+        if(!musicWanted)return false;
+
+        try{
+          await a.play();
+          musicStarted=true;
+          if(musicCtl)musicCtl.textContent='MUSIC: ON';
+          return true;
+        }catch(e){
+          musicStarted=false;
+          if(musicCtl)musicCtl.textContent='TAP MUSIC';
+          return false;
+        }
+      };
+
+      /* Halloween uses one uninterrupted playlist:
+         new song once -> old Song 1 -> old Song 2 -> old Song 3 -> old Song 1... */
+      setMusicScene=async function(sceneName,reset){
+        musicScene=sceneName;
+        if(!musicStarted)return playMusicIndex(musicIndex,!!reset);
+        return true;
+      };
+
+      musicPlaylist.forEach((a,i)=>{
+        a.addEventListener('ended',()=>{
+          if(!musicWanted||i!==musicIndex)return;
+          const next=(i===0)?1:((i>=musicPlaylist.length-1)?1:i+1);
+          playMusicIndex(next,true);
+        });
+      });
+
+      musicPlaylist.forEach(a=>{try{a.pause()}catch(e){}});
+      musicStarted=false;
+      musicIndex=0;
+      setTimeout(()=>{if(musicWanted&&!musicStarted)playMusicIndex(0,true)},80);
+    }catch(e){console.warn('Halloween music setup:',e)}
+  }
+
+  function mat(color,rough=.72,emissive=0){
+    return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:.03,emissive});
+  }
+
+  function mesh(geo,material,x,y,z,parent,rx=0,ry=0,rz=0){
+    const m=new THREE.Mesh(geo,material);
+    m.position.set(x,y,z);
+    m.rotation.set(rx,ry,rz);
+    m.castShadow=true;
+    m.receiveShadow=true;
+    parent.add(m);
+    return m;
+  }
+
+  const GEO={
+    head:new THREE.SphereGeometry(.24,12,10),
+    eye:new THREE.SphereGeometry(.035,8,6),
+    torso:new THREE.BoxGeometry(.48,.72,.28),
+    limb:new THREE.CylinderGeometry(.065,.075,.62,8),
+    bone:new THREE.CylinderGeometry(.045,.055,.6,7),
+    pelvis:new THREE.BoxGeometry(.34,.18,.18),
+    rib:new THREE.BoxGeometry(.48,.055,.10)
+  };
+
+  function makeZombie(){
+    const g=new THREE.Group();
+    const skin=mat(0x6d8f55),skinDark=mat(0x526f42),shirt=mat(0x39424b),pants=mat(0x252931),eye=mat(0xd8ef88,.35,0x5a6d15);
+
+    mesh(GEO.torso,shirt,0,1.17,0,g);
+    mesh(GEO.head,skin,.02,1.73,0,g);
+    mesh(GEO.eye,eye,-.085,1.77,.215,g);
+    mesh(GEO.eye,eye,.105,1.77,.215,g);
+
+    const la=mesh(GEO.limb,skinDark,-.34,1.18,.02,g,0,0,-.42);
+    const ra=mesh(GEO.limb,skin,.34,1.18,.02,g,0,0,.5);
+    const ll=mesh(GEO.limb,pants,-.15,.55,0,g,0,0,.08);
+    const rl=mesh(GEO.limb,pants,.15,.55,0,g,0,0,-.08);
+
+    g.userData.swing=[la,ra,ll,rl];
+    return g;
+  }
+
+  function makeSkeleton(){
+    const g=new THREE.Group(),bone=mat(0xd8d4bd),dark=mat(0x07080a);
+
+    const skull=mesh(GEO.head,bone,0,1.75,0,g);
+    skull.scale.set(.82,1,.9);
+    mesh(GEO.eye,dark,-.08,1.78,.205,g);
+    mesh(GEO.eye,dark,.08,1.78,.205,g);
+
+    mesh(new THREE.CylinderGeometry(.045,.055,.65,7),bone,0,1.18,0,g);
+    [1.43,1.32,1.21,1.10].forEach((yy,i)=>{
+      const rib=mesh(GEO.rib,bone,0,yy,0,g);
+      rib.scale.x=1-i*.10;
+    });
+
+    mesh(GEO.pelvis,bone,0,.88,0,g);
+
+    const la=mesh(GEO.bone,bone,-.33,1.2,0,g,0,0,-.18);
+    const ra=mesh(GEO.bone,bone,.33,1.2,0,g,0,0,.18);
+    const ll=mesh(GEO.bone,bone,-.14,.48,0,g,0,0,.04);
+    const rl=mesh(GEO.bone,bone,.14,.48,0,g,0,0,-.04);
+
+    g.userData.swing=[la,ra,ll,rl];
+    return g;
+  }
+
+  function addEnemyBar(root){
+    const grp=new THREE.Group();
+    grp.position.set(0,2.12,0);
+
+    const bg=new THREE.Mesh(
+      new THREE.PlaneGeometry(.94,.09),
+      new THREE.MeshBasicMaterial({color:0x14070a,transparent:true,opacity:.9,depthTest:false})
+    );
+    const fill=new THREE.Mesh(
+      new THREE.PlaneGeometry(.90,.055),
+      new THREE.MeshBasicMaterial({color:0xe14a4a,depthTest:false})
+    );
+
+    fill.position.z=.006;
+    grp.add(bg,fill);
+    root.add(grp);
+
+    root.userData.hpBar=grp;
+    root.userData.hpFill=fill;
+  }
+
+  function spawnEnemy(type,x,z){
+    const root=type==='zombie'?makeZombie():makeSkeleton();
+    const y=getWalkSurfaceY(x,z);
+
+    root.position.set(x,y===null?.18:y,z);
+    root.scale.setScalar(type==='zombie'?1.02:.96);
+
+    addEnemyBar(root);
+    scene.add(root);
+
+    const e={
+      type,
+      group:root,
+      hp:100,
+      maxHP:100,
+      speed:type==='zombie'?.78:1.04,
+      nextAttack:0,
+      dead:false,
+      removed:false
+    };
+    H.enemies.push(e);
+    return e;
+  }
+
+  function spawnWave(n){
+    H.wave=n;
+
+    if(n===1){
+      setWaveText('WAVE 1 • ZOMBIE + SKELETON');
+      spawnEnemy('zombie',.72,22);
+      spawnEnemy('skeleton',13,16);
+    }else{
+      setWaveText('WAVE 2 • 2 ZOMBIES + 2 SKELETONS');
+      spawnEnemy('zombie',-6.35,13);
+      spawnEnemy('zombie',20,-6);
+      spawnEnemy('skeleton',6.35,13);
+      spawnEnemy('skeleton',20,5);
+    }
+  }
+
+  function aliveEnemies(){
+    return H.enemies.filter(e=>!e.dead&&!e.removed);
+  }
+
+  function updateEnemyBar(e){
+    const f=e.group.userData.hpFill,b=e.group.userData.hpBar;
+    if(!f||!b)return;
+
+    const ratio=Math.max(0,e.hp/e.maxHP);
+    f.scale.x=ratio;
+    f.position.x=-.45*(1-ratio);
+    b.quaternion.copy(camera.quaternion);
+  }
+
+  function damageEnemy(e,amount){
+    if(!e||e.dead)return;
+
+    e.hp=Math.max(0,e.hp-amount);
+    updateEnemyBar(e);
+
+    e.group.scale.multiplyScalar(1.045);
+    setTimeout(()=>{
+      if(e.group)e.group.scale.multiplyScalar(1/1.045);
+    },70);
+
+    if(e.hp<=0)killEnemy(e);
+  }
+
+  function killEnemy(e){
+    if(e.dead)return;
+    e.dead=true;
+
+    e.group.rotation.z=(Math.random()<.5?-1:1)*1.18;
+    e.group.position.y-=.05;
+
+    setTimeout(()=>{
+      if(e.group.parent)e.group.parent.remove(e.group);
+      e.removed=true;
+      checkWave();
+    },650);
+  }
+
+  function checkWave(){
+    if(aliveEnemies().length)return;
+
+    if(H.wave===1){
+      setWaveText('WAVE 1 CLEAR • MORE ARE COMING…');
+      setTimeout(()=>{
+        if(H.wave===1)spawnWave(2);
+      },2200);
+    }else if(H.wave===2){
+      H.wave=3;
+      setWaveText('DOCK CLEAR ✓ • HALLOWEEN NIGHT SURVIVED');
+    }
+  }
+
+  function tryMove(group,dir,speed,dt){
+    const old=group.position;
+    const next=old.clone().addScaledVector(dir,speed*dt);
+
+    let y=getWalkSurfaceY(next.x,next.z);
+    if(y!==null){
+      next.y=y;
+      group.position.copy(next);
+      return true;
+    }
+
+    const nx=old.clone();
+    nx.x=next.x;
+    y=getWalkSurfaceY(nx.x,nx.z);
+    if(y!==null){
+      nx.y=y;
+      group.position.copy(nx);
+      return true;
+    }
+
+    const nz=old.clone();
+    nz.z=next.z;
+    y=getWalkSurfaceY(nz.x,nz.z);
+    if(y!==null){
+      nz.y=y;
+      group.position.copy(nz);
+      return true;
+    }
+
+    return false;
+  }
+
+  function hurtRick(n){
+    if(H.rickDown)return;
+
+    H.rickHP=Math.max(0,H.rickHP-n);
+    updateHud();
+
+    if(H.rickHP<=0){
+      H.rickDown=true;
+      setWaveText('RICK IS DOWN');
+
+      try{
+        controller.special=true;
+        controller.specialName='halloweenDead';
+        if(actions.dead)play('dead',{once:true,fade:.05});
+      }catch(e){}
+
+      setTimeout(()=>{
+        H.rickHP=100;
+        H.rickDown=false;
+        updateHud();
+
+        const y=getWalkSurfaceY(0,-27);
+        controller.pos.set(0,y===null?.18:y,-27);
+        controller.groundY=controller.pos.y;
+        controller.onGround=true;
+        controller.vertical=0;
+        controller.special=false;
+        controller.specialName='';
+
+        if(actor){
+          actor.visible=true;
+          actor.position.copy(controller.pos);
+        }
+
+        try{play('idle',{fade:.08})}catch(e){}
+
+        setWaveText(
+          H.wave===1?'WAVE 1 • FIGHT!':
+          H.wave===2?'WAVE 2 • FIGHT!':
+          'DOCK CLEAR ✓'
+        );
+      },3000);
+    }
+  }
+
+  function hurtGage(n){
+    if(H.gageDown)return;
+
+    H.gageHP=Math.max(0,H.gageHP-n);
+    updateHud();
+
+    if(H.gageHP<=0){
+      H.gageDown=true;
+      setWaveText('GAGE IS DOWN');
+
+      try{
+        gageState.target=null;
+        gageState.idleUntil=999999;
+        gageSetAction('idle');
+      }catch(e){}
+
+      setTimeout(()=>{
+        H.gageHP=100;
+        H.gageDown=false;
+        updateHud();
+
+        if(gageNPC){
+          const y=getWalkSurfaceY(.72,-23);
+          gageNPC.position.set(.72,y===null?.18:y,-23);
+        }
+
+        try{
+          gageState.idleUntil=0;
+          gageState.currentNode=1;
+          gageState.nextNode=0;
+        }catch(e){}
+
+        setWaveText(
+          H.wave===1?'WAVE 1 • FIGHT!':
+          H.wave===2?'WAVE 2 • FIGHT!':
+          'DOCK CLEAR ✓'
+        );
+      },3500);
+    }
+  }
+
+  function nearestEnemy(pos,max=Infinity){
+    let best=null,bd=max;
+
+    for(const e of aliveEnemies()){
+      const d=e.group.position.distanceTo(pos);
+      if(d<bd){
+        bd=d;
+        best=e;
+      }
+    }
+
+    return best?{e:best,d:bd}:null;
+  }
+
+  function rickPunch(){
+    if(!H.started||H.rickDown)return;
+
+    const now=performance.now();
+    if(now<H.nextRickHit)return;
+    H.nextRickHit=now+520;
+
+    try{
+      if(actions.punch)play('punch',{once:true,fade:.05});
+    }catch(e){}
+
+    const hit=nearestEnemy(controller.pos,2.15);
+    if(hit)damageEnemy(hit.e,42);
+  }
+
+  function setupControls(){
+    addEventListener('keydown',e=>{
+      if(e.code==='KeyE'){
+        e.preventDefault();
+        rickPunch();
+      }
+    });
+
+    const grid=document.querySelector('.actionGrid');
+    if(grid&&!document.getElementById('halloweenPunchBtn')){
+      const b=document.createElement('button');
+      b.type='button';
+      b.id='halloweenPunchBtn';
+      b.className='act primary';
+      b.textContent='PUNCH';
+
+      const fire=e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        rickPunch();
+      };
+
+      b.addEventListener('pointerdown',fire);
+      grid.appendChild(b);
+    }
+  }
+
+  function loadCombatAnimations(){
+    try{
+      gltfLoader.load(
+        encodeURI('Meshy_AI_Iron_Harbor_Brawler_biped_Animation_Punch_Combo_1_withSkin.glb'),
+        g=>{
+          const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+          if(clip&&mixer){
+            actions.punch=mixer.clipAction(typeof cleanClip==='function'?cleanClip(clip):clip);
+          }
+        },
+        undefined,
+        ()=>{}
+      );
+
+      gltfLoader.load(
+        encodeURI('Meshy_AI_Serpent_Shoulder_Smil_biped_Animation_Punch_Combo_1_withSkin.glb'),
+        g=>{
+          const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+          if(clip&&gageMixer){
+            H.gagePunchAction=gageMixer.clipAction(
+              typeof cleanNPCClip==='function'?cleanNPCClip(clip):clip
+            );
+          }
+        },
+        undefined,
+        ()=>{}
+      );
+
+      gltfLoader.load(
+        'rick-gage-dead.glb',
+        g=>{
+          const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+          if(!clip)return;
+
+          if(mixer){
+            actions.dead=mixer.clipAction(typeof cleanClip==='function'?cleanClip(clip):clip);
+          }
+        },
+        undefined,
+        ()=>{}
+      );
+    }catch(e){}
+  }
+
+  function gageFight(dt,now){
+    if(
+      H.gageDown||
+      typeof gageNPC==='undefined'||
+      !gageNPC||
+      (typeof multiplayer!=='undefined'&&multiplayer.connected)
+    )return;
+
+    const n=nearestEnemy(gageNPC.position,8.5);
+    if(!n)return;
+
+    try{
+      gageState.target=null;
+      gageState.idleUntil=now/1000+.3;
+    }catch(e){}
+
+    const dir=new THREE.Vector3().subVectors(n.e.group.position,gageNPC.position);
+    dir.y=0;
+
+    if(n.d>1.45){
+      dir.normalize();
+      tryMove(gageNPC,dir,1.28,dt);
+
+      gageNPC.rotation.y=lerpAngle(
+        gageNPC.rotation.y,
+        Math.atan2(dir.x,dir.z)+Math.PI,
+        Math.min(1,dt*8)
+      );
+
+      try{gageSetAction('run')}catch(e){}
+    }else if(now>=H.nextGageHit){
+      H.nextGageHit=now+760;
+
+      gageNPC.rotation.y=lerpAngle(
+        gageNPC.rotation.y,
+        Math.atan2(dir.x,dir.z)+Math.PI,
+        1
+      );
+
+      try{
+        if(H.gagePunchAction){
+          if(gageRunAction)gageRunAction.fadeOut(.05);
+          if(gageIdleAction)gageIdleAction.fadeOut(.05);
+
+          H.gagePunchAction.reset();
+          H.gagePunchAction.setLoop(THREE.LoopOnce,1);
+          H.gagePunchAction.clampWhenFinished=true;
+          H.gagePunchAction.fadeIn(.04).play();
+        }
+      }catch(e){}
+
+      damageEnemy(n.e,34);
+    }
+  }
+
+  function updateEnemies(dt,now){
+    const paused=
+      (typeof callState!=='undefined'&&callState.active)||
+      (typeof serviceState!=='undefined'&&serviceState.active)||
+      (typeof firstJobState!=='undefined'&&firstJobState.cutscenePlaying)||
+      (typeof arrivalState!=='undefined'&&arrivalState.cutscenePlaying);
+
+    for(const e of H.enemies){
+      if(e.dead||e.removed)continue;
+
+      updateEnemyBar(e);
+
+      const swing=e.group.userData.swing||[];
+      const phase=now*.008*(e.type==='skeleton'?1.35:1);
+
+      if(swing[0])swing[0].rotation.x=Math.sin(phase)*.45;
+      if(swing[1])swing[1].rotation.x=-Math.sin(phase)*.45;
+      if(swing[2])swing[2].rotation.x=-Math.sin(phase)*.32;
+      if(swing[3])swing[3].rotation.x=Math.sin(phase)*.32;
+
+      if(paused)continue;
+
+      const rp=controller.pos;
+      let target='rick',tp=rp,rd=e.group.position.distanceTo(rp);
+
+      if(!H.gageDown&&typeof gageNPC!=='undefined'&&gageNPC){
+        const gd=e.group.position.distanceTo(gageNPC.position);
+        if(gd<rd){
+          target='gage';
+          tp=gageNPC.position;
+          rd=gd;
+        }
+      }
+
+      const dir=new THREE.Vector3().subVectors(tp,e.group.position);
+      dir.y=0;
+      const dist=dir.length();
+
+      if(dist>1.12){
+        dir.normalize();
+        tryMove(e.group,dir,e.speed,dt);
+        e.group.rotation.y=lerpAngle(
+          e.group.rotation.y,
+          Math.atan2(dir.x,dir.z),
+          Math.min(1,dt*6)
+        );
+      }else if(now>=e.nextAttack){
+        e.nextAttack=now+(e.type==='skeleton'?900:1120);
+        const damage=e.type==='skeleton'?9:12;
+
+        if(target==='gage')hurtGage(damage);
+        else hurtRick(damage);
+      }
+    }
+  }
+
+  function maybeStart(){
+    if(H.started)return;
+
+    try{
+      if(!gameAssetsReady)return;
+      if(loaderUI&&loaderUI.style.display!=='none')return;
+
+      H.started=true;
+      spawnWave(1);
+      loadCombatAnimations();
+    }catch(e){}
+  }
+
+  let last=performance.now();
+
+  function loop(now){
+    requestAnimationFrame(loop);
+
+    const dt=Math.min(.04,Math.max(.001,(now-last)/1000));
+    last=now;
+
+    maybeStart();
+    if(!H.started)return;
+
+    updateEnemies(dt,now);
+    gageFight(dt,now);
+  }
+
+  function init(){
+    addStyles();
+    addHud();
+    applyNight();
+    addWebs();
+    addPumpkins();
+    setupMusic();
+    setupControls();
+    requestAnimationFrame(loop);
+  }
+
+  if(document.readyState==='loading'){
+    addEventListener('DOMContentLoaded',init,{once:true});
+  }else{
+    setTimeout(init,0);
+  }
+})();

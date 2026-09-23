@@ -1,0 +1,34 @@
+DOCKYARD DECEPTION — FULL HALLOWEEN BUILD
+
+UPLOAD THESE FILES TO THE ROOT OF THE halloween-2026 BRANCH:
+- halloween-mode.js
+- boat-daddy-rick.mp3
+- pumpkin-totem.glb
+- rick-gage-dead.glb
+
+FINAL STEP IN index.html:
+Near the very bottom of index.html, AFTER the game's main script has loaded and immediately before </body>, add:
+
+<script src="halloween-mode.js"></script>
+
+Then commit the index.html change to halloween-2026.
+
+THIS HALLOWEEN SCRIPT ADDS:
+- Nighttime lighting and stars
+- Spider webs around the docks
+- Pumpkin decorations
+- Rick health bar
+- Gage health bar
+- Zombie enemies
+- Skeleton enemies
+- Enemy health bars
+- Rick punch control (E on keyboard + PUNCH mobile button)
+- Gage automatically fights enemies
+- Enemy attacks and player damage
+- KO/down + respawn behavior
+- Halloween song plays first, then the normal music rotation
+- Wave 1: 1 zombie + 1 skeleton
+- Wave 2: 2 zombies + 2 skeletons after Wave 1 is defeated
+
+IMPORTANT:
+Only upload this to halloween-2026. Keep backup-non-halloween-2026-09-22 untouched.
