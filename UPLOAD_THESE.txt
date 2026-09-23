@@ -1,0 +1,8 @@
+Upload these four files directly to the ROOT of the halloween-2026 branch, beside index.html:
+
+boat-daddy-rick.mp3
+pumpkin-totem.glb
+rick-gage-dead.glb
+halloween-mode.js
+
+No folders are required.
