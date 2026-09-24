@@ -1,6 +1,9 @@
-/* Dockyard Deception Halloween mode — 2026-09-22
+/* Dockyard Deception Halloween mode — 2026-09-24
    Load this AFTER the main game's inline script.
-   It reuses the existing Three.js scene, Rick/Gage controllers, GLTF loader and music system. */
+   It reuses the existing Three.js scene, Rick/Gage controllers, GLTF loader and music system.
+   Combat: Rick punch (E) + kick (Q), Gage alternates punch/kick, hit reactions + death
+   animations for Rick/Gage/zombies/skeletons. Rick-sized jack-o'-lanterns, pylon webs,
+   full moon, night sky with clouds, moonlit water, random werewolf howls. */
 (function(){
   'use strict';
   if(window.__DOCKYARD_HALLOWEEN_ACTIVE)return;
@@ -20,7 +23,8 @@
     gagePunchAction:null,gageKickAction:null,gageHitAction:null,gageDeadAction:null,gageKickNext:false,
     enemyHitClip:null,enemyDeadClip:null,
     declineCooldownUntil:0,
-    spookyWaypoint:null
+    spookyWaypoint:null,
+    _howlT:null,_howlInit:false,howlCtx:null
   };
 
   function addStyles(){
@@ -96,7 +100,7 @@
       }
 
       const moon=new THREE.DirectionalLight(0xa9c7ff,1.25);
-      moon.position.set(20,32,10);
+      moon.position.set(-38,24,-70);
       moon.castShadow=true;
       scene.add(moon);
       scene.add(new THREE.AmbientLight(0x152341,.22));
@@ -142,31 +146,41 @@
     return web;
   }
 
+  // Webs draped over the piling caps, sitting right on top of the pylons.
   function makePylonWeb(x,z,ry,scale=1){
     const pts=[];
-    const anchorX=-.54, maxR=1.04;
-    const spokes=8, rings=4;
-    // A fan-shaped web whose left edge sits directly on the piling.
+    const spokes=9,rings=5,maxR=1.0;
     for(let i=0;i<spokes;i++){
-      const a=(-1.05)+(i/(spokes-1))*2.10;
-      pts.push(anchorX,0,0,anchorX+Math.cos(a)*maxR,Math.sin(a)*maxR,0);
+      const a=i/spokes*Math.PI*2;
+      pts.push(0,0,0,Math.cos(a)*maxR,Math.sin(a)*maxR,0);
     }
     for(let r=1;r<=rings;r++){
       const rad=maxR*r/rings;
-      for(let i=0;i<spokes-1;i++){
-        const a=(-1.05)+(i/(spokes-1))*2.10;
-        const b=(-1.05)+((i+1)/(spokes-1))*2.10;
-        pts.push(anchorX+Math.cos(a)*rad,Math.sin(a)*rad,0,anchorX+Math.cos(b)*rad,Math.sin(b)*rad,0);
+      for(let i=0;i<spokes;i++){
+        const a=i/spokes*Math.PI*2,b=(i+1)/spokes*Math.PI*2;
+        pts.push(Math.cos(a)*rad,Math.sin(a)*rad,0,Math.cos(b)*rad,Math.sin(b)*rad,0);
       }
     }
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
-    const web=new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0xf1f3ff,transparent:true,opacity:.72,depthWrite:false}));
-    web.position.set(x,1.28,z);
-    web.rotation.y=ry;
-    web.scale.setScalar(scale);
-    scene.add(web);
-    return web;
+    const g=new THREE.Group();
+    g.add(new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0xf1f3ff,transparent:true,opacity:.72,depthWrite:false})));
+    // Dew sparkle.
+    const dp=[];
+    for(let i=0;i<22;i++){
+      const a=Math.random()*Math.PI*2,rr=(.2+Math.random()*.8)*maxR;
+      dp.push(Math.cos(a)*rr,Math.sin(a)*rr,0);
+    }
+    const dg=new THREE.BufferGeometry();
+    dg.setAttribute('position',new THREE.Float32BufferAttribute(dp,3));
+    g.add(new THREE.Points(dg,new THREE.PointsMaterial({color:0xcfe4ff,size:.04,transparent:true,opacity:.85,depthWrite:false})));
+    // Drape it over the cap (cap top ~2.38): tilted so the threads catch the piling.
+    g.position.set(x,2.46,z);
+    g.rotation.y=ry;
+    g.rotation.x=-.95;
+    g.scale.setScalar(scale);
+    scene.add(g);
+    return g;
   }
 
   function addWebs(){
@@ -183,6 +197,193 @@
       const use=picks.length?picks:[[-1.68,-23],[1.68,-14],[-1.68,4],[1.68,13],[-1.68,22]];
       use.forEach((p,i)=>makePylonWeb(p[0],p[1],p[0]<0?Math.PI/2:-Math.PI/2,.82+(i%2)*.12));
     }catch(e){console.warn('Halloween pylon webs:',e)}
+  }
+
+  // Night sky shader: stars, drifting moonlit clouds, moon halo.
+  function makeNightSky(){
+    try{
+      if(typeof skyUniforms!=='undefined'){
+        skyUniforms.zenithColor.value.set(0x020409);
+        skyUniforms.upperColor.value.set(0x06101f);
+        skyUniforms.horizonColor.value.set(0x0e1e33);
+        skyUniforms.warmColor.value.set(0xcfdcff);
+        skyUniforms.hazeColor.value.set(0x1b2a44);
+      }
+      if(typeof skyMat!=='undefined'){
+        skyMat.fragmentShader=[
+          'varying vec3 vWorld;',
+          'uniform float uTime;',
+          'uniform vec3 zenithColor,upperColor,horizonColor,warmColor,hazeColor;',
+          'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}',
+          'float noise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);vec2 u=f*f*(3.0-2.0*f);',
+          ' return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),u.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),u.x),u.y);}',
+          'float fbm(vec2 p){float v=0.0;float a=0.5;for(int k=0;k<5;k++){v+=a*noise(p);p=p*2.03+vec2(17.3,9.1);a*=0.5;}return v;}',
+          'void main(){',
+          ' vec3 d=normalize(vWorld-cameraPosition);',
+          ' float h=clamp(d.y,-0.15,1.0);',
+          ' vec3 c=mix(horizonColor,upperColor,smoothstep(-.02,.34,h));',
+          ' c=mix(c,zenithColor,smoothstep(.34,.92,h));',
+          ' vec3 mdir=normalize(vec3(-.457,.288,-.841));',
+          ' float md=max(dot(d,mdir),0.0);',
+          ' vec2 sp=d.xz/(abs(d.y)+.28)*36.0;',
+          ' vec2 cell=floor(sp);',
+          ' float sh=hash(cell);',
+          ' float star=smoothstep(.10,.02,length(fract(sp)-.5))*step(.80,sh);',
+          ' float tw=.55+.45*sin(uTime*2.4+sh*43.0);',
+          ' c+=vec3(.85,.92,1.0)*star*tw*smoothstep(.04,.38,h);',
+          ' vec2 cuv=d.xz/(abs(d.y)+.34);',
+          ' float cl=fbm(cuv*2.4+vec2(uTime*.010,uTime*.005));',
+          ' float clouds=smoothstep(.46,.80,cl)*smoothstep(.015,.22,h);',
+          ' float moonlit=pow(md,2.0);',
+          ' vec3 cloudCol=mix(hazeColor*.45,warmColor*.85,.20+.80*moonlit);',
+          ' c=mix(c,cloudCol,clouds*.88);',
+          ' c+=warmColor*pow(md,20.0)*.30;',
+          ' c+=vec3(.96,.98,1.0)*pow(md,300.0)*.55;',
+          ' float hz=1.0-smoothstep(-.015,.115,h);',
+          ' c=mix(c,hazeColor*.6,hz*.55);',
+          ' gl_FragColor=vec4(c,1.0);',
+          '}'
+        ].join('\n');
+        skyMat.needsUpdate=true;
+      }
+
+      // Water: deep night water with silver moon glints.
+      if(typeof waterUniforms!=='undefined'){
+        waterUniforms.deepColor.value.set(0x020a14);
+        waterUniforms.midColor.value.set(0x07202f);
+        waterUniforms.shallowColor.value.set(0x0d3a4c);
+        waterUniforms.horizonColor.value.set(0x0e1e33);
+        waterUniforms.skyTop.value.set(0x06101f);
+        waterUniforms.sunColor.value.set(0xb9d4ff);
+        waterUniforms.foamColor.value.set(0x8fa8b8);
+      }
+      // Aim the water's specular glints at the moon instead of the old sun spot.
+      if(typeof waterMat!=='undefined'&&waterMat.fragmentShader.indexOf('-.40,.76,-.50')!==-1){
+        waterMat.fragmentShader=waterMat.fragmentShader.replace('vec3(-.40,.76,-.50)','vec3(-.457,.288,-.841)');
+        waterMat.needsUpdate=true;
+      }
+      // Turn the old sunset glitter path into a moonlight path on the water.
+      try{
+        if(typeof sunsetReflection!=='undefined'){
+          sunsetReflection.position.set(-14,-.392,-30);
+          sunsetReflection.rotation.z=.50;
+        }
+        if(typeof reflectionMat!=='undefined'&&reflectionMat.fragmentShader.indexOf('1.0,.63,.31')!==-1){
+          reflectionMat.fragmentShader=reflectionMat.fragmentShader.replace('vec4(1.0,.63,.31,a)','vec4(.70,.80,1.0,a*.75)');
+          reflectionMat.needsUpdate=true;
+        }
+      }catch(e){}
+    }catch(e){console.warn('Halloween night sky:',e)}
+  }
+
+  // Big cratered full moon with a soft glow.
+  function addFullMoon(){
+    try{
+      const S=256;
+      const c=document.createElement('canvas');c.width=c.height=S;
+      const x=c.getContext('2d');
+      const g=x.createRadialGradient(S/2,S/2,S*.08,S/2,S/2,S*.5);
+      g.addColorStop(0,'#fdfbf3');g.addColorStop(.82,'#f1ebda');g.addColorStop(.94,'#d6d1bd');g.addColorStop(1,'rgba(214,209,189,0)');
+      x.fillStyle=g;x.beginPath();x.arc(S/2,S/2,S*.5,0,7);x.fill();
+      // Maria blotches.
+      x.fillStyle='rgba(166,160,146,.5)';
+      const blobs=[[96,88,26],[150,120,34],[118,160,20],[170,70,16],[80,140,14],[140,180,22],[190,140,18],[110,60,15]];
+      for(const b of blobs){x.beginPath();x.ellipse(b[0],b[1],b[2],b[2]*.8,b[2],0,7);x.fill()}
+      // Craters.
+      for(let i=0;i<46;i++){
+        const a=Math.random()*Math.PI*2,r=Math.random()*S*.36;
+        const px=S/2+Math.cos(a)*r,py=S/2+Math.sin(a)*r,cr=2+Math.random()*7;
+        x.fillStyle='rgba(148,142,126,.5)';
+        x.beginPath();x.arc(px,py,cr,0,7);x.fill();
+        x.fillStyle='rgba(255,255,250,.32)';
+        x.beginPath();x.arc(px-cr*.25,py-cr*.25,cr*.55,0,7);x.fill();
+      }
+      const moon=new THREE.Mesh(
+        new THREE.CircleGeometry(7.5,48),
+        new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,fog:false})
+      );
+      moon.position.set(-38,24,-70);
+      moon.lookAt(0,4,0);
+      scene.add(moon);
+
+      const gc=document.createElement('canvas');gc.width=gc.height=128;
+      const gx=gc.getContext('2d');
+      const gg=gx.createRadialGradient(64,64,8,64,64,64);
+      gg.addColorStop(0,'rgba(210,225,255,.55)');gg.addColorStop(.4,'rgba(180,200,245,.20)');gg.addColorStop(1,'rgba(180,200,245,0)');
+      gx.fillStyle=gg;gx.fillRect(0,0,128,128);
+      const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(gc),transparent:true,depthWrite:false,fog:false,opacity:.9}));
+      glow.scale.setScalar(36);
+      glow.position.copy(moon.position);
+      scene.add(glow);
+    }catch(e){console.warn('Halloween full moon:',e)}
+  }
+
+  // Random distant werewolf howls, synthesized with Web Audio (no audio files needed).
+  function playHowl(pan){
+    const ctx=H.howlCtx;
+    if(!ctx||ctx.state!=='running')return;
+    try{
+      const t0=ctx.currentTime+.05;
+      const dur=3.2+Math.random()*1.3;
+      const master=ctx.createGain();
+      master.gain.setValueAtTime(.0001,t0);
+      master.gain.exponentialRampToValueAtTime(.30,t0+.55);
+      master.gain.setValueAtTime(.30,t0+dur-.9);
+      master.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+      let out=master;
+      if(ctx.createStereoPanner){
+        const p=ctx.createStereoPanner();
+        p.pan.value=Math.max(-1,Math.min(1,pan||0));
+        master.connect(p);out=p;
+      }
+      out.connect(ctx.destination);
+
+      const baseF=330+Math.random()*90;
+      const peakF=baseF*1.9;
+      for(const det of [0,5]){
+        const o=ctx.createOscillator();o.type='triangle';
+        o.frequency.setValueAtTime(baseF+det,t0);
+        o.frequency.exponentialRampToValueAtTime(peakF+det,t0+dur*.35);
+        o.frequency.setValueAtTime(peakF+det,t0+dur*.55);
+        o.frequency.exponentialRampToValueAtTime(baseF*.82+det,t0+dur);
+        const lfo=ctx.createOscillator();lfo.frequency.value=5.2+Math.random()*1.4;
+        const lfoG=ctx.createGain();lfoG.gain.value=baseF*.035;
+        lfo.connect(lfoG);lfoG.connect(o.frequency);
+        const og=ctx.createGain();og.gain.value=.5;
+        o.connect(og);og.connect(master);
+        o.start(t0);o.stop(t0+dur+.1);
+        lfo.start(t0);lfo.stop(t0+dur+.1);
+      }
+      // Breathiness.
+      const nb=ctx.createBuffer(1,Math.floor(ctx.sampleRate*dur),ctx.sampleRate);
+      const dd=nb.getChannelData(0);
+      for(let i=0;i<dd.length;i++)dd[i]=Math.random()*2-1;
+      const ns=ctx.createBufferSource();ns.buffer=nb;
+      const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=850;bp.Q.value=1.1;
+      const ng=ctx.createGain();ng.gain.value=.05;
+      ns.connect(bp);bp.connect(ng);ng.connect(master);
+      ns.start(t0);ns.stop(t0+dur);
+    }catch(e){}
+  }
+
+  function scheduleHowl(){
+    clearTimeout(H._howlT);
+    H._howlT=setTimeout(()=>{
+      try{playHowl((Math.random()*2-1)*.75)}catch(e){}
+      scheduleHowl();
+    },45000+Math.random()*75000);
+  }
+
+  function initHowls(){
+    if(H._howlInit)return;
+    H._howlInit=true;
+    try{
+      H.howlCtx=new (window.AudioContext||window.webkitAudioContext)();
+      if(H.howlCtx.state==='suspended')H.howlCtx.resume();
+      // First howl shortly after the mode starts, then randomly every 45-120s.
+      setTimeout(()=>{try{playHowl(0)}catch(e){}},7000+Math.random()*9000);
+      scheduleHowl();
+    }catch(e){}
   }
 
   function addPumpkins(){
@@ -244,19 +445,18 @@
     }
 
     try{
-      // Rick's jack-o'-lanterns — bigger now, spread in pairs along both sides
+      // Rick's jack-o'-lanterns — Rick-sized, spread in pairs along both sides
       // of the dock so they light the walkway without blocking it.
-      // (The old pumpkin-totem.glb giants were removed.)
       [
-        [-3.8,-22,2.9,.1],
-        [3.8,-22,2.7,-.5],
-        [-5.2,-13,3.1,.65],
-        [5.2,-13,2.8,-.2],
-        [-4.9,4,3.0,-.4],
-        [4.9,4,2.9,.9],
-        [-4.6,13,3.1,1.2],
-        [4.6,13,2.7,-1.1],
-        [18.4,4.8,3.2,-.8]
+        [-3.8,-22,1.05,.1],
+        [3.8,-22,.95,-.5],
+        [-5.2,-13,1.15,.65],
+        [5.2,-13,1.0,-.2],
+        [-4.9,4,1.1,-.4],
+        [4.9,4,1.0,.9],
+        [-4.6,13,1.15,1.2],
+        [4.6,13,.95,-1.1],
+        [18.4,4.8,1.1,-.8]
       ].forEach(p=>placeSinglePumpkin(p[0],p[1],p[2],p[3]));
     }catch(e){console.warn('Halloween pumpkin setup:',e)}
   }
@@ -1278,10 +1478,23 @@
     installFiveMinuteDeclineCooldown();
     installSpookyFirstJobWaypoint();
     applyNight();
+    makeNightSky();
+    addFullMoon();
     addWebs();
     addPumpkins();
     setupMusic();
     setupControls();
+    initHowls();
+    // Mobile browsers keep AudioContext suspended until a user gesture — unlock howls on first tap.
+    addEventListener('pointerdown',()=>{
+      try{
+        if(!H._howlInit)initHowls();
+        else if(H.howlCtx&&H.howlCtx.state==='suspended')H.howlCtx.resume();
+      }catch(e){}
+    },{passive:true});
+    addEventListener('keydown',()=>{
+      try{if(H.howlCtx&&H.howlCtx.state==='suspended')H.howlCtx.resume()}catch(e){}
+    });
     requestAnimationFrame(loop);
   }
 
