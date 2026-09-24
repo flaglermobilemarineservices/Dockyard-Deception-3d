@@ -8,7 +8,7 @@
 
   const MAIN_ASSET_ROOT='https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/main/';
   const HALLOWEEN_ASSET_ROOT='https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/halloween-2026/';
-  const MAIN_HALLOWEEN_ASSETS=new Set(['halloween-zombie.glb','halloween-skeleton.glb','pumpkin-totem.glb']);
+  const MAIN_HALLOWEEN_ASSETS=new Set(['halloween-zombie.glb','halloween-skeleton.glb','rick-gage-dead.glb']);
   const halloweenAsset=name=>{
     const root=MAIN_HALLOWEEN_ASSETS.has(name)?MAIN_ASSET_ROOT:HALLOWEEN_ASSET_ROOT;
     return root+encodeURIComponent(name).replace(/%2F/g,'/');
@@ -17,7 +17,9 @@
   const H=window.DOCKYARD_HALLOWEEN={
     wave:0,rickHP:100,gageHP:100,rickDown:false,gageDown:false,
     enemies:[],started:false,nextGageHit:0,nextRickHit:0,
-    gagePunchAction:null,declineCooldownUntil:0,
+    gagePunchAction:null,gageKickAction:null,gageHitAction:null,gageDeadAction:null,gageKickNext:false,
+    enemyHitClip:null,enemyDeadClip:null,
+    declineCooldownUntil:0,
     spookyWaypoint:null
   };
 
@@ -32,9 +34,11 @@
       '#gageHealthFill{background:linear-gradient(90deg,#5ab8ff,#8ce8ff)!important}'+
       '#halloweenWave{text-align:center;margin-top:5px;font-size:10px;font-weight:1000;letter-spacing:.08em;color:#f3d7ff}'+
       '#halloweenPunchBtn{background:rgba(112,34,38,.94)!important;border-color:rgba(255,150,150,.7)!important;opacity:.97!important}'+
+      '#halloweenKickBtn{background:rgba(30,58,112,.94)!important;border-color:rgba(150,190,255,.7)!important;opacity:.97!important}'+
       '.actionGrid{width:74px!important;justify-items:center!important;gap:8px!important}.actionGrid .act{width:64px!important;height:64px!important;min-height:64px!important;border-radius:50%!important;padding:5px!important;line-height:1.02!important;font-size:9px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}.actionGrid .act.trick{min-height:64px!important;height:64px!important;font-size:9px!important}'+
       '#halloweenPunchBtn{width:68px!important;height:68px!important;min-height:68px!important;font-size:10px!important;box-shadow:0 0 18px rgba(255,65,65,.42)!important}'+
-      '@media(pointer:coarse){#halloweenHud{right:max(8px,env(safe-area-inset-right));left:auto;top:max(68px,env(safe-area-inset-top));width:min(180px,44vw);transform:none}#halloweenHud .hhCard{padding:6px 8px}#halloweenHud .hhRow{grid-template-columns:38px 1fr 28px;gap:5px;font-size:9px}#halloweenWave{font-size:8px}.actionGrid{width:66px!important}.actionGrid .act{width:58px!important;height:58px!important;min-height:58px!important;border-radius:50%!important}.actionGrid .act.trick{height:58px!important;min-height:58px!important;border-radius:50%!important}#halloweenPunchBtn{width:62px!important;height:62px!important;min-height:62px!important;border-radius:50%!important}}';
+      '#halloweenKickBtn{width:68px!important;height:68px!important;min-height:68px!important;font-size:10px!important;box-shadow:0 0 18px rgba(90,140,255,.42)!important}'+
+      '@media(pointer:coarse){#halloweenHud{right:max(8px,env(safe-area-inset-right));left:auto;top:max(68px,env(safe-area-inset-top));width:min(180px,44vw);transform:none}#halloweenHud .hhCard{padding:6px 8px}#halloweenHud .hhRow{grid-template-columns:38px 1fr 28px;gap:5px;font-size:9px}#halloweenWave{font-size:8px}.actionGrid{width:66px!important}.actionGrid .act{width:58px!important;height:58px!important;min-height:58px!important;border-radius:50%!important}.actionGrid .act.trick{height:58px!important;min-height:58px!important;border-radius:50%!important}#halloweenPunchBtn{width:62px!important;height:62px!important;min-height:62px!important;border-radius:50%!important}#halloweenKickBtn{width:62px!important;height:62px!important;min-height:62px!important;border-radius:50%!important}}';
     document.head.appendChild(s);
   }
 
@@ -240,44 +244,20 @@
     }
 
     try{
-      gltfLoader.load(halloweenAsset('pumpkin-totem.glb'),g=>{
-        const source=g.scene;
-        source.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
-        const sourceBox=new THREE.Box3().setFromObject(source),sourceSize=new THREE.Vector3();
-        sourceBox.getSize(sourceSize);
-
-        const placeTotem=(x,z,targetHeight,rot=0)=>{
-          const clone=source.clone(true);
-          const scale=targetHeight/Math.max(.001,sourceSize.y);
-          clone.scale.setScalar(scale);
-          const y=getWalkSurfaceY(x,z);
-          clone.position.set(x,y===null?.18:y,z);
-          clone.rotation.y=rot;
-          scene.add(clone);
-
-          const glow=new THREE.PointLight(0xff6a19,1.45,9.5,2);
-          glow.position.set(x,(y===null?.18:y)+Math.max(1.6,targetHeight*.45),z);
-          scene.add(glow);
-        };
-
-        // Stacked totems — all at least Rick-height, varied sizes.
-        [
-          [6.35,-23,3.9,.25],
-          [3.2,-18,2.6,-.35],
-          [-6.35,13,3.2,1.65],
-          [20,5,4.4,.95],
-          [0.9,22,2.2,-1.2]
-        ].forEach(p=>placeTotem(p[0],p[1],p[2],p[3]));
-
-        // Single giant jack-o-lanterns — also at least as big as Rick.
-        [
-          [-3.4,-22,2.0,.1],
-          [5.0,-13,1.9,.65],
-          [-4.7,4,2.15,-.4],
-          [4.6,13,2.3,1.2],
-          [18.4,4.8,2.45,-.8]
-        ].forEach(p=>placeSinglePumpkin(p[0],p[1],p[2],p[3]));
-      },undefined,err=>console.warn('Halloween pumpkin load:',err));
+      // Rick's jack-o'-lanterns — bigger now, spread in pairs along both sides
+      // of the dock so they light the walkway without blocking it.
+      // (The old pumpkin-totem.glb giants were removed.)
+      [
+        [-3.8,-22,2.9,.1],
+        [3.8,-22,2.7,-.5],
+        [-5.2,-13,3.1,.65],
+        [5.2,-13,2.8,-.2],
+        [-4.9,4,3.0,-.4],
+        [4.9,4,2.9,.9],
+        [-4.6,13,3.1,1.2],
+        [4.6,13,2.7,-1.1],
+        [18.4,4.8,3.2,-.8]
+      ].forEach(p=>placeSinglePumpkin(p[0],p[1],p[2],p[3]));
     }catch(e){console.warn('Halloween pumpkin setup:',e)}
   }
 
@@ -537,10 +517,34 @@
     e.hp=Math.max(0,e.hp-amount);
     updateEnemyBar(e);
 
-    e.group.scale.multiplyScalar(1.045);
-    setTimeout(()=>{
-      if(e.group)e.group.scale.multiplyScalar(1/1.045);
-    },70);
+    // Hit reaction animation (retargeted Brawler clip, same mixamo rig).
+    try{
+      if(H.enemyHitClip&&e.mixer){
+        if(!e.hitAction)e.hitAction=e.mixer.clipAction(H.enemyHitClip);
+        e.hitAction.stop();
+        e.hitAction.reset();
+        e.hitAction.enabled=true;
+        e.hitAction.setEffectiveWeight(1);
+        e.hitAction.setLoop(THREE.LoopOnce,1);
+        e.hitAction.clampWhenFinished=false;
+        if(e.walkAction)e.walkAction.fadeOut(.07);
+        e.hitAction.fadeIn(.07).play();
+        const dur=Math.max(.25,e.hitAction.getClip().duration);
+        clearTimeout(e._hitT);
+        e._hitT=setTimeout(()=>{
+          if(!e.dead&&!e.removed&&e.walkAction){
+            e.walkAction.reset();
+            e.walkAction.fadeIn(.14).play();
+          }
+        },dur*880);
+      }else{
+        // Fallback pop if the clip hasn't loaded yet.
+        e.group.scale.multiplyScalar(1.045);
+        setTimeout(()=>{
+          if(e.group)e.group.scale.multiplyScalar(1/1.045);
+        },70);
+      }
+    }catch(err){}
 
     if(e.hp<=0)killEnemy(e);
   }
@@ -548,15 +552,36 @@
   function killEnemy(e){
     if(e.dead)return;
     e.dead=true;
+    clearTimeout(e._hitT);
 
-    e.group.rotation.z=(Math.random()<.5?-1:1)*1.18;
-    e.group.position.y-=.05;
+    try{
+      if(e.walkAction)e.walkAction.fadeOut(.06);
+      if(e.hitAction)e.hitAction.stop();
+      if(H.enemyDeadClip&&e.mixer){
+        if(!e.deadAction)e.deadAction=e.mixer.clipAction(H.enemyDeadClip);
+        e.deadAction.reset();
+        e.deadAction.enabled=true;
+        e.deadAction.setEffectiveWeight(1);
+        e.deadAction.setLoop(THREE.LoopOnce,1);
+        e.deadAction.clampWhenFinished=true;
+        e.deadAction.fadeIn(.08).play();
+      }else{
+        // Fallback tip-over if the clip hasn't loaded yet.
+        e.group.rotation.z=(Math.random()<.5?-1:1)*1.18;
+        e.group.position.y-=.05;
+      }
+    }catch(err){
+      try{e.group.rotation.z=(Math.random()<.5?-1:1)*1.18}catch(err2){}
+    }
 
+    const dur=(e.deadAction&&H.enemyDeadClip)
+      ?Math.max(.8,e.deadAction.getClip().duration)
+      :.65;
     setTimeout(()=>{
       if(e.group.parent)e.group.parent.remove(e.group);
       e.removed=true;
       checkWave();
-    },650);
+    },dur*1000+250);
   }
 
   function checkWave(){
@@ -611,6 +636,29 @@
     H.rickHP=Math.max(0,H.rickHP-n);
     updateHud();
 
+    // Hit reaction when hurt but still standing.
+    if(H.rickHP>0){
+      try{
+        const a=actions&&actions.hit;
+        if(a){
+          const flipping=!!(controller&&controller.special&&controller.specialName==='backflip');
+          a.stop();
+          a.reset();
+          a.enabled=true;
+          a.setEffectiveWeight(1);
+          a.setEffectiveTimeScale(1.15);
+          a.setLoop(THREE.LoopOnce,1);
+          a.clampWhenFinished=false;
+          if(!flipping){
+            if(typeof currentAction!=='undefined'&&currentAction&&currentAction!==a)currentAction.fadeOut(.04);
+            if(typeof currentAction!=='undefined')currentAction=a;
+            if(typeof currentName!=='undefined')currentName='hit';
+          }
+          a.fadeIn(.02).play();
+        }
+      }catch(e){}
+    }
+
     if(H.rickHP<=0){
       H.rickDown=true;
       setWaveText('RICK IS DOWN');
@@ -656,6 +704,27 @@
     H.gageHP=Math.max(0,H.gageHP-n);
     updateHud();
 
+    // Hit reaction when hurt but still standing.
+    if(H.gageHP>0){
+      try{
+        if(H.gageHitAction){
+          if(gageRunAction)gageRunAction.fadeOut(.05);
+          if(gageIdleAction)gageIdleAction.fadeOut(.05);
+          H.gageHitAction.reset();
+          H.gageHitAction.enabled=true;
+          H.gageHitAction.setEffectiveWeight(1);
+          H.gageHitAction.setLoop(THREE.LoopOnce,1);
+          H.gageHitAction.clampWhenFinished=false;
+          H.gageHitAction.fadeIn(.04).play();
+          const dur=Math.max(.4,H.gageHitAction.getClip().duration);
+          clearTimeout(H._gageHitT);
+          H._gageHitT=setTimeout(()=>{
+            try{if(!H.gageDown)gageSetAction('idle')}catch(e){}
+          },dur*900);
+        }
+      }catch(e){}
+    }
+
     if(H.gageHP<=0){
       H.gageDown=true;
       setWaveText('GAGE IS DOWN');
@@ -663,7 +732,19 @@
       try{
         gageState.target=null;
         gageState.idleUntil=999999;
-        gageSetAction('idle');
+        clearTimeout(H._gageHitT);
+        if(gageIdleAction)gageIdleAction.fadeOut(.06);
+        if(gageRunAction)gageRunAction.fadeOut(.06);
+        if(H.gageDeadAction){
+          H.gageDeadAction.reset();
+          H.gageDeadAction.enabled=true;
+          H.gageDeadAction.setEffectiveWeight(1);
+          H.gageDeadAction.setLoop(THREE.LoopOnce,1);
+          H.gageDeadAction.clampWhenFinished=true;
+          H.gageDeadAction.fadeIn(.06).play();
+        }else{
+          gageSetAction('idle');
+        }
       }catch(e){}
 
       setTimeout(()=>{
@@ -677,9 +758,11 @@
         }
 
         try{
+          if(H.gageDeadAction)H.gageDeadAction.stop();
           gageState.idleUntil=0;
           gageState.currentNode=1;
           gageState.nextNode=0;
+          gageSetAction('idle');
         }catch(e){}
 
         setWaveText(
@@ -741,11 +824,51 @@
     H.nextRickHit=now;
   }
 
+  function rickKick(){
+    if(!H.started||H.rickDown)return;
+
+    const now=performance.now();
+    const flipping=!!(controller&&controller.special&&controller.specialName==='backflip');
+
+    // Visual kick happens on EVERY press. During a flip it blends over the flip
+    // instead of cancelling the aerial move, so Rick can land hits mid-flip.
+    try{
+      const a=actions&&actions.kick;
+      if(a){
+        a.stop();
+        a.reset();
+        a.enabled=true;
+        a.setEffectiveTimeScale(flipping?1.3:1.08);
+        a.setEffectiveWeight(flipping?.72:1);
+        a.setLoop(THREE.LoopOnce,1);
+        a.clampWhenFinished=false;
+        a.fadeIn(.015).play();
+        if(!flipping){
+          if(typeof currentAction!=='undefined'&&currentAction&&currentAction!==a)currentAction.fadeOut(.035);
+          if(typeof currentAction!=='undefined')currentAction=a;
+          if(typeof currentName!=='undefined')currentName='kick';
+        }
+      }
+    }catch(e){console.warn('Rick kick animation:',e)}
+
+    // Kicks hit a little harder with a touch more reach than punches.
+    const hit=nearestEnemy(controller.pos,flipping?3.2:2.7);
+    if(hit){
+      const dmg=flipping?38:44;
+      damageEnemy(hit.e,dmg);
+    }
+    H.nextRickHit=now;
+  }
+
   function setupControls(){
     addEventListener('keydown',e=>{
       if(e.code==='KeyE'){
         e.preventDefault();
         if(!e.repeat)rickPunch();
+      }
+      if(e.code==='KeyQ'){
+        e.preventDefault();
+        if(!e.repeat)rickKick();
       }
     });
 
@@ -766,10 +889,27 @@
       b.addEventListener('pointerdown',fire,{passive:false});
       grid.appendChild(b);
     }
+    if(grid&&!document.getElementById('halloweenKickBtn')){
+      const k=document.createElement('button');
+      k.type='button';
+      k.id='halloweenKickBtn';
+      k.className='act primary';
+      k.textContent='KICK';
+      k.setAttribute('aria-label','Kick');
+
+      const fireK=e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        rickKick();
+      };
+      k.addEventListener('pointerdown',fireK,{passive:false});
+      grid.appendChild(k);
+    }
   }
 
   function loadCombatAnimations(){
     try{
+      // ---- Rick (Iron Harbor Brawler rig -> main mixer) ----
       gltfLoader.load(
         encodeURI('Meshy_AI_Iron_Harbor_Brawler_biped_Animation_Punch_Combo_1_withSkin.glb'),
         g=>{
@@ -782,6 +922,33 @@
         ()=>{}
       );
 
+      // Rick kick: Serpent Roundhouse_Kick retargeted (identical mixamo rig).
+      gltfLoader.load(
+        encodeURI('Meshy_AI_Serpent_Shoulder_Smil_biped_Animation_Roundhouse_Kick_withSkin.glb'),
+        g=>{
+          const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+          if(clip&&mixer){
+            actions.kick=mixer.clipAction(typeof cleanClip==='function'?cleanClip(clip):clip);
+          }
+        },
+        undefined,
+        ()=>{}
+      );
+
+      // Rick hit reaction.
+      gltfLoader.load(
+        encodeURI('Meshy_AI_Iron_Harbor_Brawler_biped_Animation_Hit_Reaction_withSkin.glb'),
+        g=>{
+          const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+          if(clip&&mixer){
+            actions.hit=mixer.clipAction(typeof cleanClip==='function'?cleanClip(clip):clip);
+          }
+        },
+        undefined,
+        ()=>{}
+      );
+
+      // ---- Gage (Serpent rig -> gageMixer) ----
       gltfLoader.load(
         encodeURI('Meshy_AI_Serpent_Shoulder_Smil_biped_Animation_Punch_Combo_1_withSkin.glb'),
         g=>{
@@ -796,6 +963,37 @@
         ()=>{}
       );
 
+      // Gage kick.
+      gltfLoader.load(
+        encodeURI('Meshy_AI_Serpent_Shoulder_Smil_biped_Animation_Roundhouse_Kick_withSkin.glb'),
+        g=>{
+          const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+          if(clip&&gageMixer){
+            H.gageKickAction=gageMixer.clipAction(
+              typeof cleanNPCClip==='function'?cleanNPCClip(clip):clip
+            );
+          }
+        },
+        undefined,
+        ()=>{}
+      );
+
+      // Gage hit reaction.
+      gltfLoader.load(
+        encodeURI('Meshy_AI_Serpent_Shoulder_Smil_biped_Animation_Hit_Reaction_withSkin.glb'),
+        g=>{
+          const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+          if(clip&&gageMixer){
+            H.gageHitAction=gageMixer.clipAction(
+              typeof cleanNPCClip==='function'?cleanNPCClip(clip):clip
+            );
+          }
+        },
+        undefined,
+        ()=>{}
+      );
+
+      // Death animation for Rick AND Gage (shared mixamo rig).
       gltfLoader.load(
         halloweenAsset('rick-gage-dead.glb'),
         g=>{
@@ -805,6 +1003,31 @@
           if(mixer){
             actions.dead=mixer.clipAction(typeof cleanClip==='function'?cleanClip(clip):clip);
           }
+          if(typeof gageMixer!=='undefined'&&gageMixer){
+            H.gageDeadAction=gageMixer.clipAction(
+              typeof cleanNPCClip==='function'?cleanNPCClip(clip):clip
+            );
+          }
+        },
+        undefined,
+        ()=>{}
+      );
+
+      // Zombie/skeleton hit + death clips (retargeted Brawler clips, same rig).
+      gltfLoader.load(
+        encodeURI('Meshy_AI_Iron_Harbor_Brawler_biped_Animation_Hit_Reaction_withSkin.glb'),
+        g=>{
+          const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+          if(clip)H.enemyHitClip=typeof cleanNPCClip==='function'?cleanNPCClip(clip):clip;
+        },
+        undefined,
+        ()=>{}
+      );
+      gltfLoader.load(
+        encodeURI('Meshy_AI_Iron_Harbor_Brawler_biped_Animation_Dead_withSkin.glb'),
+        g=>{
+          const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+          if(clip)H.enemyDeadClip=typeof cleanNPCClip==='function'?cleanNPCClip(clip):clip;
         },
         undefined,
         ()=>{}
@@ -851,19 +1074,26 @@
         1
       );
 
+      // Alternate punches and kicks.
+      H.gageKickNext=!H.gageKickNext;
+      const useKick=H.gageKickNext&&H.gageKickAction;
+      const act=useKick?H.gageKickAction:H.gagePunchAction;
+
       try{
-        if(H.gagePunchAction){
+        if(act){
           if(gageRunAction)gageRunAction.fadeOut(.05);
           if(gageIdleAction)gageIdleAction.fadeOut(.05);
 
-          H.gagePunchAction.reset();
-          H.gagePunchAction.setLoop(THREE.LoopOnce,1);
-          H.gagePunchAction.clampWhenFinished=true;
-          H.gagePunchAction.fadeIn(.04).play();
+          act.reset();
+          act.enabled=true;
+          act.setEffectiveWeight(1);
+          act.setLoop(THREE.LoopOnce,1);
+          act.clampWhenFinished=true;
+          act.fadeIn(.04).play();
         }
       }catch(e){}
 
-      damageEnemy(n.e,34);
+      damageEnemy(n.e,useKick?42:34);
     }
   }
 
@@ -875,9 +1105,9 @@
       (typeof arrivalState!=='undefined'&&arrivalState.cutscenePlaying);
 
     for(const e of H.enemies){
-      if(e.dead||e.removed)continue;
+      if(e.removed)continue;
       if(e.mixer)e.mixer.update(dt);
-
+      if(e.dead)continue;
       updateEnemyBar(e);
       if(!e.ready)continue;
 
