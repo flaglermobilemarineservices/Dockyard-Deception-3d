@@ -182,26 +182,101 @@
   }
 
   function addPumpkins(){
+    function placeSinglePumpkin(x,z,size=1.0,rot=0){
+      const y=getWalkSurfaceY(x,z);
+      const root=new THREE.Group();
+      root.position.set(x,y===null?.18:y,z);
+      root.rotation.y=rot;
+
+      const body=new THREE.Mesh(
+        new THREE.SphereGeometry(size*.92,22,18),
+        new THREE.MeshStandardMaterial({
+          color:0xf46b18,
+          roughness:.86,
+          metalness:.02,
+          emissive:0x4a1600,
+          emissiveIntensity:.45
+        })
+      );
+      body.scale.set(1.0,.94,.98);
+      body.position.y=size*.94;
+      body.castShadow=true;
+      body.receiveShadow=true;
+      root.add(body);
+
+      const stem=new THREE.Mesh(
+        new THREE.CylinderGeometry(size*.10,size*.13,size*.42,9),
+        new THREE.MeshStandardMaterial({color:0x4d3516,roughness:.95})
+      );
+      stem.position.set(0,size*1.82,0);
+      stem.rotation.z=.18;
+      stem.castShadow=true;
+      root.add(stem);
+
+      const eyeGeo=new THREE.ConeGeometry(size*.17,size*.28,3);
+      const faceMat=new THREE.MeshBasicMaterial({color:0xffe7a2});
+      const eyeL=new THREE.Mesh(eyeGeo,faceMat);
+      const eyeR=new THREE.Mesh(eyeGeo,faceMat);
+      eyeL.position.set(-size*.26,size*1.12,size*.77);
+      eyeR.position.set(size*.26,size*1.12,size*.77);
+      eyeL.rotation.z=Math.PI;
+      eyeR.rotation.z=Math.PI;
+      root.add(eyeL,eyeR);
+
+      const mouth=new THREE.Mesh(
+        new THREE.TorusGeometry(size*.28,size*.055,8,24,Math.PI*.92),
+        faceMat
+      );
+      mouth.position.set(0,size*.78,size*.78);
+      mouth.rotation.x=Math.PI/2;
+      mouth.rotation.z=Math.PI;
+      root.add(mouth);
+
+      scene.add(root);
+
+      const glow=new THREE.PointLight(0xff7b1f,1.55,8.5,2);
+      glow.position.set(x,(y===null?.18:y)+size*1.25,z);
+      scene.add(glow);
+    }
+
     try{
       gltfLoader.load(halloweenAsset('pumpkin-totem.glb'),g=>{
-        const base=g.scene;
-        const box=new THREE.Box3().setFromObject(base),size=new THREE.Vector3();
-        box.getSize(size);
-        // Rick is normalized to ~1.82m. These are intentionally monster-size decorations.
-        const s=3.45/Math.max(.001,size.y);
-        base.scale.setScalar(s);
-        base.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
-        const spots=[[6.35,-23],[-6.35,13],[20,5]];
-        spots.forEach((p,i)=>{
-          const clone=i===0?base:base.clone(true);
-          const y=getWalkSurfaceY(p[0],p[1]);
-          clone.position.set(p[0],y===null?.18:y,p[1]);
-          clone.rotation.y=i*1.7+.35;
+        const source=g.scene;
+        source.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
+        const sourceBox=new THREE.Box3().setFromObject(source),sourceSize=new THREE.Vector3();
+        sourceBox.getSize(sourceSize);
+
+        const placeTotem=(x,z,targetHeight,rot=0)=>{
+          const clone=source.clone(true);
+          const scale=targetHeight/Math.max(.001,sourceSize.y);
+          clone.scale.setScalar(scale);
+          const y=getWalkSurfaceY(x,z);
+          clone.position.set(x,y===null?.18:y,z);
+          clone.rotation.y=rot;
           scene.add(clone);
-          const glow=new THREE.PointLight(0xff6a19,1.35,7.5,2);
-          glow.position.set(p[0],(y===null?.18:y)+1.7,p[1]);
+
+          const glow=new THREE.PointLight(0xff6a19,1.45,9.5,2);
+          glow.position.set(x,(y===null?.18:y)+Math.max(1.6,targetHeight*.45),z);
           scene.add(glow);
-        });
+        };
+
+        // Stacked totems — all at least Rick-height, varied sizes.
+        [
+          [6.35,-23,3.9,.25],
+          [3.2,-18,2.6,-.35],
+          [-6.35,13,3.2,1.65],
+          [20,5,4.4,.95],
+          [0.9,22,2.2,-1.2]
+        ].forEach(p=>placeTotem(p[0],p[1],p[2],p[3]));
+
+        // Single giant jack-o-lanterns — also at least as big as Rick.
+        [
+          [-3.4,-22,2.0,.1],
+          [5.0,-13,1.9,.65],
+          [-4.7,4,2.15,-.4],
+          [4.6,13,2.3,1.2],
+          [18.4,4.8,2.45,-.8]
+        ].forEach(p=>placeSinglePumpkin(p[0],p[1],p[2],p[3]));
       },undefined,err=>console.warn('Halloween pumpkin load:',err));
     }catch(e){console.warn('Halloween pumpkin setup:',e)}
   }
@@ -413,6 +488,13 @@
     return spawnEnemy(type,p[0],p[1]);
   }
 
+  function pickFixedSpawn(options,fallbackPos,slot=0){
+    for(const p of options){
+      if(getWalkSurfaceY(p[0],p[1])!==null)return p;
+    }
+    return nearbySpawnPoint(fallbackPos,slot);
+  }
+
   function spawnWave(n){
     H.wave=n;
 
@@ -421,9 +503,11 @@
 
     if(n===1){
       setWaveText('WAVE 1 • ZOMBIE + SKELETON');
-      // Spawn close enough to make contact comfortably inside 10 seconds.
-      spawnNear('zombie',rickPos,0);
-      spawnNear('skeleton',gagePos,2);
+      // Top-deck startup spawns.
+      const zombieTop=pickFixedSpawn([[6.35,-23],[6.35,-18],[3.2,-23]],rickPos,0);
+      const skeletonTop=pickFixedSpawn([[-6.35,-23],[-6.35,-18],[-3.2,-23]],gagePos,2);
+      spawnEnemy('zombie',zombieTop[0],zombieTop[1]);
+      spawnEnemy('skeleton',skeletonTop[0],skeletonTop[1]);
     }else{
       setWaveText('WAVE 2 • 2 ZOMBIES + 2 SKELETONS');
       spawnNear('zombie',rickPos,1);
