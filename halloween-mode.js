@@ -6,8 +6,13 @@
   if(window.__DOCKYARD_HALLOWEEN_ACTIVE)return;
   window.__DOCKYARD_HALLOWEEN_ACTIVE=true;
 
+  const MAIN_ASSET_ROOT='https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/main/';
   const HALLOWEEN_ASSET_ROOT='https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/halloween-2026/';
-  const halloweenAsset=name=>HALLOWEEN_ASSET_ROOT+encodeURIComponent(name).replace(/%2F/g,'/');
+  const MAIN_HALLOWEEN_ASSETS=new Set(['halloween-zombie.glb','halloween-skeleton.glb','pumpkin-totem.glb']);
+  const halloweenAsset=name=>{
+    const root=MAIN_HALLOWEEN_ASSETS.has(name)?MAIN_ASSET_ROOT:HALLOWEEN_ASSET_ROOT;
+    return root+encodeURIComponent(name).replace(/%2F/g,'/');
+  };
 
   const H=window.DOCKYARD_HALLOWEEN={
     wave:0,rickHP:100,gageHP:100,rickDown:false,gageDown:false,
@@ -19,7 +24,7 @@
   function addStyles(){
     const s=document.createElement('style');
     s.textContent=
-      '#halloweenHud{position:absolute;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:126;width:min(390px,62vw);pointer-events:none;font-family:Inter,system-ui,Arial,sans-serif}'+
+      '#halloweenHud{position:fixed;right:max(10px,env(safe-area-inset-right));left:auto;top:max(76px,env(safe-area-inset-top));transform:none;z-index:126;width:min(210px,42vw);pointer-events:none;font-family:Inter,system-ui,Arial,sans-serif}'+
       '#halloweenHud .hhCard{background:rgba(3,5,12,.82);border:1px solid rgba(220,225,255,.35);border-radius:14px;padding:8px 10px;box-shadow:0 10px 32px rgba(0,0,0,.45);backdrop-filter:blur(7px)}'+
       '#halloweenHud .hhRow{display:grid;grid-template-columns:52px 1fr 42px;gap:7px;align-items:center;margin:4px 0;font-size:11px;font-weight:1000}'+
       '#halloweenHud .hhTrack{height:10px;border-radius:999px;background:#24131a;overflow:hidden;border:1px solid rgba(255,255,255,.18)}'+
@@ -29,7 +34,7 @@
       '#halloweenPunchBtn{background:rgba(112,34,38,.94)!important;border-color:rgba(255,150,150,.7)!important;opacity:.97!important}'+
       '.actionGrid{width:74px!important;justify-items:center!important;gap:8px!important}.actionGrid .act{width:64px!important;height:64px!important;min-height:64px!important;border-radius:50%!important;padding:5px!important;line-height:1.02!important;font-size:9px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}.actionGrid .act.trick{min-height:64px!important;height:64px!important;font-size:9px!important}'+
       '#halloweenPunchBtn{width:68px!important;height:68px!important;min-height:68px!important;font-size:10px!important;box-shadow:0 0 18px rgba(255,65,65,.42)!important}'+
-      '@media(pointer:coarse){#halloweenHud{top:max(8px,env(safe-area-inset-top));width:min(360px,64vw)}#halloweenHud .hhCard{padding:6px 8px}#halloweenHud .hhRow{font-size:10px}.actionGrid{width:66px!important}.actionGrid .act{width:58px!important;height:58px!important;min-height:58px!important}.actionGrid .act.trick{height:58px!important;min-height:58px!important}#halloweenPunchBtn{width:62px!important;height:62px!important;min-height:62px!important}}';
+      '@media(pointer:coarse){#halloweenHud{right:max(8px,env(safe-area-inset-right));left:auto;top:max(68px,env(safe-area-inset-top));width:min(180px,44vw);transform:none}#halloweenHud .hhCard{padding:6px 8px}#halloweenHud .hhRow{grid-template-columns:38px 1fr 28px;gap:5px;font-size:9px}#halloweenWave{font-size:8px}.actionGrid{width:66px!important}.actionGrid .act{width:58px!important;height:58px!important;min-height:58px!important;border-radius:50%!important}.actionGrid .act.trick{height:58px!important;min-height:58px!important;border-radius:50%!important}#halloweenPunchBtn{width:62px!important;height:62px!important;min-height:62px!important;border-radius:50%!important}}';
     document.head.appendChild(s);
   }
 
@@ -183,7 +188,7 @@
         const box=new THREE.Box3().setFromObject(base),size=new THREE.Vector3();
         box.getSize(size);
         // Rick is normalized to ~1.82m. These are intentionally monster-size decorations.
-        const s=3.15/Math.max(.001,size.y);
+        const s=3.45/Math.max(.001,size.y);
         base.scale.setScalar(s);
         base.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
         const spots=[[6.35,-23],[-6.35,13],[20,5]];
@@ -390,19 +395,41 @@
     return e;
   }
 
+  function nearbySpawnPoint(pos,slot=0){
+    const offsets=[
+      [3.0,0],[-3.0,0],[0,3.6],[0,-3.6],
+      [4.2,2.0],[-4.2,2.0],[4.2,-2.0],[-4.2,-2.0]
+    ];
+    for(let i=0;i<offsets.length;i++){
+      const o=offsets[(i+slot)%offsets.length];
+      const x=pos.x+o[0],z=pos.z+o[1];
+      if(getWalkSurfaceY(x,z)!==null)return [x,z];
+    }
+    return [pos.x,pos.z];
+  }
+
+  function spawnNear(type,targetPos,slot){
+    const p=nearbySpawnPoint(targetPos,slot);
+    return spawnEnemy(type,p[0],p[1]);
+  }
+
   function spawnWave(n){
     H.wave=n;
 
+    const rickPos=(controller&&controller.pos)?controller.pos:new THREE.Vector3(0,0,-27);
+    const gagePos=(typeof gageNPC!=='undefined'&&gageNPC)?gageNPC.position:rickPos;
+
     if(n===1){
       setWaveText('WAVE 1 • ZOMBIE + SKELETON');
-      spawnEnemy('zombie',.72,22);
-      spawnEnemy('skeleton',13,16);
+      // Spawn close enough to make contact comfortably inside 10 seconds.
+      spawnNear('zombie',rickPos,0);
+      spawnNear('skeleton',gagePos,2);
     }else{
       setWaveText('WAVE 2 • 2 ZOMBIES + 2 SKELETONS');
-      spawnEnemy('zombie',-6.35,13);
-      spawnEnemy('zombie',20,-6);
-      spawnEnemy('skeleton',6.35,13);
-      spawnEnemy('skeleton',20,5);
+      spawnNear('zombie',rickPos,1);
+      spawnNear('zombie',gagePos,3);
+      spawnNear('skeleton',rickPos,4);
+      spawnNear('skeleton',gagePos,6);
     }
   }
 

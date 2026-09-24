@@ -20,7 +20,7 @@ html,body{margin:0;width:100%;height:100%;background:#01040b;color:#fff;font-fam
   const BASE_URL =
     'https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/backup-non-halloween-2026-09-22/index.html?v=' + stamp;
   const HALLOWEEN_URL =
-    'https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/halloween-2026/halloween-mode.js?v=' + stamp;
+    'https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/main/halloween-mode.js?v=' + stamp;
 
   try {
     const [baseResponse, halloweenResponse] = await Promise.all([
@@ -36,6 +36,8 @@ html,body{margin:0;width:100%;height:100%;background:#01040b;color:#fff;font-fam
     }
 
     let html = await baseResponse.text();
+    // Halloween build cleanup: remove the old Manatee Man profanity.
+    html = html.replace(/fuck\s+you/gi, '');
     let halloweenCode = await halloweenResponse.text();
 
     // Halloween-only asset URLs are handled inside halloween-mode.js.
