@@ -1,3 +1,20 @@
-Dockyard Deception v18.20
-Replace your repo-root index.html with this one.
-Includes the latest water + sky visual upgrade.
+DOCKYARD DECEPTION — HALLOWEEN 2026 FIXED UPLOAD
+
+Upload ALL files in this folder to the ROOT of the halloween-2026 branch.
+Replace index.html and halloween-mode.js if prompted.
+Do NOT modify backup-non-halloween-2026-09-22.
+
+Included fixes:
+- Uses Rick's exact uploaded skeleton and Plaidwalker zombie GLBs (no primitive placeholder enemies).
+- Pumpkins scale to ~3.15m tall, bigger than Rick/Gage.
+- Spider webs are anchored to actual dock piling coordinates.
+- Declining the first job blocks another customer call for 5:00.
+- Job 1 waypoint is larger, orange/purple, glowing and pulsing.
+- PUNCH animates on every button press and each press can damage an enemy.
+- Punching is allowed during Rick's backflip for multiple aerial hits.
+- Mobile action buttons are round.
+
+Already expected on the halloween-2026 branch:
+- boat-daddy-rick.mp3
+- rick-gage-dead.glb
+- Rick/Gage punch animation GLBs
