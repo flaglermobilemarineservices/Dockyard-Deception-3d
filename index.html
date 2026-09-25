@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preload" as="image" href="halloween-loading.webp">
 <title>Dockyard Deception — Halloween 2026</title>
 <style>
 html,body{margin:0;width:100%;height:100%;background:#01040b;color:#fff;font-family:system-ui,Arial,sans-serif}
-#boot{position:fixed;inset:0;display:grid;place-items:center;background:#01040b;z-index:999999}
-#box{text-align:center;padding:24px}
+#boot{position:fixed;inset:0;display:grid;place-items:center;z-index:999999;background:#01040b url('halloween-loading.webp') center/cover no-repeat}
+#box{text-align:center;padding:24px;background:rgba(1,4,11,.55);border-radius:14px}
 #box b{font-size:22px}
 #box div{margin-top:8px;opacity:.75;font-size:13px;line-height:1.4}
 </style>

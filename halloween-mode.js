@@ -17,6 +17,15 @@
     return root+encodeURIComponent(name).replace(/%2F/g,'/');
   };
 
+  // Swap the base game's loading artwork for our Halloween art. The <img> is
+  // already parsed (it sits before the main script), and this runs during the
+  // initial script execution, so the swap lands before loading finishes.
+  // Relative URL: after document.write the document URL is still the Pages site.
+  try{
+    const la=document.getElementById('loadingArtwork');
+    if(la&&!la.__halloweenArt){la.__halloweenArt=true;la.src='halloween-loading.webp';}
+  }catch(e){}
+
   const H=window.DOCKYARD_HALLOWEEN={
     wave:0,rickHP:150,gageHP:150,rickMax:150,gageMax:150,rickDown:false,gageDown:false,foods:[],
     enemies:[],started:false,nextGageHit:0,nextRickHit:0,
