@@ -83,7 +83,12 @@
       '.actionGrid{width:74px!important;justify-items:center!important;gap:8px!important}.actionGrid .act{width:64px!important;height:64px!important;min-height:64px!important;border-radius:50%!important;padding:5px!important;line-height:1.02!important;font-size:9px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}.actionGrid .act.trick{min-height:64px!important;height:64px!important;font-size:9px!important}'+
       '#halloweenPunchBtn{width:68px!important;height:68px!important;min-height:68px!important;font-size:10px!important;box-shadow:0 0 18px rgba(255,65,65,.42)!important}'+
       '#halloweenKickBtn{width:68px!important;height:68px!important;min-height:68px!important;font-size:10px!important;box-shadow:0 0 18px rgba(90,140,255,.42)!important}'+
-      '@media(pointer:coarse){#halloweenHud{right:max(8px,env(safe-area-inset-right));left:auto;top:max(68px,env(safe-area-inset-top));width:min(180px,44vw);transform:none}#halloweenHud .hhCard{padding:6px 8px}#halloweenHud .hhRow{grid-template-columns:38px 1fr 28px;gap:5px;font-size:9px}#halloweenWave{font-size:8px}.actionGrid{width:66px!important}.actionGrid .act{width:58px!important;height:58px!important;min-height:58px!important;border-radius:50%!important}.actionGrid .act.trick{height:58px!important;min-height:58px!important;border-radius:50%!important}#halloweenPunchBtn{width:62px!important;height:62px!important;min-height:62px!important;border-radius:50%!important}#halloweenKickBtn{width:62px!important;height:62px!important;min-height:62px!important;border-radius:50%!important}}';
+      '@media(pointer:coarse){#halloweenHud{right:max(8px,env(safe-area-inset-right));left:auto;top:max(68px,env(safe-area-inset-top));width:min(180px,44vw);transform:none}#halloweenHud .hhCard{padding:6px 8px}#halloweenHud .hhRow{grid-template-columns:38px 1fr 28px;gap:5px;font-size:9px}#halloweenWave{font-size:8px}.actionGrid{width:66px!important}.actionGrid .act{width:58px!important;height:58px!important;min-height:58px!important;border-radius:50%!important}.actionGrid .act.trick{height:58px!important;min-height:58px!important;border-radius:50%!important}#halloweenPunchBtn{width:62px!important;height:62px!important;min-height:62px!important;border-radius:50%!important}#halloweenKickBtn{width:62px!important;height:62px!important;min-height:62px!important;border-radius:50%!important}}'+
+      // Landscape phone: action buttons in one row along the bottom, centered between the two joysticks.
+      '@media(pointer:coarse) and (orientation:landscape){.actionGrid{left:50%!important;right:auto!important;transform:translateX(-50%)!important;bottom:max(6px,env(safe-area-inset-bottom))!important;top:auto!important;width:auto!important;max-width:56vw!important;display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;justify-content:center!important;align-items:center!important;gap:8px!important}}'+
+      // Non-blocking "rotate your phone" banner, only in portrait on touch devices.
+      '#hlRotateHint{display:none;position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);z-index:200000;pointer-events:none;background:rgba(3,5,12,.88);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:8px 16px;font:700 12px/1.2 system-ui,sans-serif;color:#fff;white-space:nowrap}'+
+      '@media(pointer:coarse) and (orientation:portrait){#hlRotateHint{display:block}}';
     document.head.appendChild(s);
   }
 
@@ -630,7 +635,9 @@
       model.updateMatrixWorld(true);
       const b0=new THREE.Box3().setFromObject(model),sz=new THREE.Vector3();b0.getSize(sz);
       const targetH=type==='zombie'?1.90:1.95;
-      model.scale.setScalar(targetH/Math.max(.001,sz.y));
+      e.modelBaseScale=targetH/Math.max(.001,sz.y);
+      e.spawnT=0;
+      model.scale.setScalar(e.modelBaseScale*0.01);
       model.updateMatrixWorld(true);
       const b1=new THREE.Box3().setFromObject(model);
       model.position.y-=b1.min.y;
@@ -1350,6 +1357,12 @@
     for(const e of H.enemies){
       if(e.removed)continue;
       if(e.mixer)e.mixer.update(dt);
+      // Spawn-in: grow up out of the dock instead of popping into existence.
+      if(e.spawnT<0.35&&e.model&&e.modelBaseScale){
+        e.spawnT=Math.min(0.35,e.spawnT+dt);
+        const k=e.spawnT/0.35,ease=1-Math.pow(1-k,2);
+        e.model.scale.setScalar(Math.max(0.01,e.modelBaseScale*(0.01+0.99*ease)));
+      }
       if(e.dead)continue;
       updateEnemyBar(e);
       if(!e.ready)continue;
@@ -1518,6 +1531,25 @@
   function init(){
     addStyles();
     addHud();
+    // Rotate hint banner (CSS shows it only in portrait on touch devices).
+    try{
+      if(!document.getElementById('hlRotateHint')){
+        const rh=document.createElement('div');
+        rh.id='hlRotateHint';
+        rh.textContent='ROTATE YOUR PHONE FOR LANDSCAPE PLAY';
+        document.body.appendChild(rh);
+      }
+    }catch(e){}
+    // Auto fullscreen + landscape lock when entering the dockyard (user tap = valid gesture).
+    try{
+      const startBtn=document.getElementById('loaderStartBtn');
+      if(startBtn&&!startBtn.__hlLandscape){
+        startBtn.__hlLandscape=true;
+        startBtn.addEventListener('click',()=>{
+          try{if(typeof enterGameFullscreen==='function')enterGameFullscreen();}catch(e){}
+        });
+      }
+    }catch(e){}
     installFiveMinuteDeclineCooldown();
     installSpookyFirstJobWaypoint();
     applyNight();
