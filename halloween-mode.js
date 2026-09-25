@@ -1757,20 +1757,130 @@
       const my=document.getElementById('manateeYell');
       if(my){my.classList.remove('show');my.style.visibility='hidden';}
     }catch(e){}
-    // Calm the gear-oil minigame wind: dampen every wind value the base game
-    // computes, so the stream sway, tilt, readout AND catch collision all get
-    // gentler together (0.55x).
-    try{
-      if(typeof serviceState!=='undefined'&&serviceState&&!serviceState.__windDamped){
-        serviceState.__windDamped=true;
-        let _wind=0;
-        Object.defineProperty(serviceState,'wind',{
-          configurable:true,
-          get(){return _wind;},
-          set(v){_wind=(typeof v==='number')?v*0.55:v;}
-        });
+  // Gear-oil minigame tuning: calmer wind + catch if oil touches ANY of the pan.
+  // (Base lives on the backup branch; this global override wins at call time.)
+  try{
+    window.runOilCatch=function(now){
+    if(serviceState.step!=='catch')return;
+    const dt=Math.min(.05,(now-serviceState.lastOilTime)/1000||.016);serviceState.lastOilTime=now;
+    if(!serviceState.catchStarted){
+      serviceState.wind=0;
+      oilStream.style.opacity='0';
+      windReadout.textContent='READY — TOUCH THE PAN';
+      serviceState.oilLoop=requestAnimationFrame(runOilCatch);
+      return;
+    }
+    oilStream.style.opacity='1';
+    // Strong, shifting marina gusts, but the collision target now matches the VISIBLE oil stream.
+    serviceState.wind=(
+      .78*Math.sin(now*.00185)+
+      .41*Math.sin(now*.0049+1.7)+
+      .22*Math.sin(now*.0107+4.1))*.55; // calmed to 55%
+
+    const absWind=Math.abs(serviceState.wind);
+    const streamX=THREE.MathUtils.clamp(.55+serviceState.wind*.22,.12,.88);
+    oilStream.style.transform=`translateX(-50%) rotate(${serviceState.wind*12}deg)`;
+    oilStream.style.left=(streamX*100)+'%';
+    oilDrainPoint.style.left=(streamX*100)+'%';
+
+    windReadout.textContent=
+      serviceState.wind>.65?'GUST: →→':
+      serviceState.wind>.18?'WIND: →':
+      serviceState.wind<-.65?'GUST: ←←':
+      serviceState.wind<-.18?'WIND: ←':'WIND: CALM';
+
+    // v18.19.1 — the oil NEVER pauses just because the pan missed it.
+    // The drain continues for the full cycle; oil is either caught or becomes a real spill.
+    const drainSeconds=7.0;
+    const panHalfWidth=.15; // full pan width — oil touching any of the pan counts as caught
+    const caught=Math.abs(serviceState.panX-streamX)<=panHalfWidth;
+
+    serviceState.drainProgress+=dt;
+    if(caught){
+      serviceState.catchProgress+=dt;
+    }else{
+      serviceState.spill+=dt;
+    }
+
+    const drainPct=Math.min(100,(serviceState.drainProgress/drainSeconds)*100);
+    const spillPct=Math.min(100,(serviceState.spill/drainSeconds)*100);
+    catchReadout.textContent=`DRAIN: ${Math.round(drainPct)}% • SPILL: ${Math.round(spillPct)}%`;
+    spillFill.style.width=spillPct+'%';
+
+    // Make missed oil visibly hit the floor/water beneath the drain instead of silently disappearing.
+    if(oilSpillPuddle){
+      oilSpillPuddle.style.left=(streamX*100)+'%';
+      if(!caught){
+        const puddleScale=.35+Math.min(2.4,serviceState.spill*.48);
+        oilSpillPuddle.style.opacity=String(Math.min(.92,.24+serviceState.spill*.16));
+        oilSpillPuddle.style.transform=`translateX(-50%) scale(${puddleScale})`;
       }
-    }catch(e){}
+    }
+
+    if(spillPct>=40){
+      serviceState.step='catchFail';
+      oilPanDragging=false;
+      oilCatchGame.style.display='none';
+      stopGearOilPan3DLoop();
+      serviceCard.style.display='block';
+      setServiceText(
+        'OIL SPILL',
+        'Too much gear oil missed the pan. The wind can move the stream fast — keep the pan directly under the visible stream.',
+        'SPILL LIMIT REACHED'
+      );
+      serviceButtons.innerHTML='';
+      serviceButton('TRY AGAIN',()=>{
+        serviceCard.style.display='none';
+        startOilCatch();
+      });
+      return;
+    }
+    if(serviceState.drainProgress>=7){
+      serviceState.step='catchDone';
+      oilCatchGame.style.display='none';
+      stopGearOilPan3DLoop();
+      setTimeout(startSelectFill,350);
+      return;
+    }
+    serviceState.oilLoop=requestAnimationFrame(runOilCatch);
+  };
+  }catch(e){}
+  // Gear-oil minigame look: lower-unit drain, thick glossy gear oil, lower pan.
+  try{
+    if(!document.getElementById('halloweenGearOilLook')){
+      const st=document.createElement('style');
+      st.id='halloweenGearOilLook';
+      st.textContent=`
+#oilDrainPoint{
+  width:40px!important;height:64px!important;top:13.5%!important;
+  border-radius:46% 46% 48% 48%/60% 60% 40% 40%!important;
+  background:linear-gradient(90deg,#0b0d0f 0%,#232a30 20%,#4d585f 42%,#767f88 50%,#4d585f 58%,#232a30 80%,#0b0d0f 100%)!important;
+  border:1px solid rgba(165,180,190,.55)!important;
+  box-shadow:0 3px 10px rgba(0,0,0,.55)!important;
+}
+#oilDrainPoint::after{
+  content:'';position:absolute;left:50%;bottom:4px;transform:translateX(-50%);
+  width:20px;height:8px;border-radius:4px;
+  background:radial-gradient(circle at 35% 30%,#ffe9a8,#c8922e 60%,#6e4d14)!important;
+  box-shadow:0 0 4px rgba(0,0,0,.6);
+}
+#oilStream{
+  top:19%!important;height:88%!important;width:15px!important;
+  border-radius:7px!important;
+  background:
+    repeating-linear-gradient(180deg,rgba(255,214,140,.13) 0 7px,rgba(255,214,140,0) 7px 15px),
+    linear-gradient(90deg,#0f0a04 0%,#241605 16%,#5a3a10 36%,#a5762a 50%,#5a3a10 64%,#241605 84%,#0f0a04 100%)!important;
+  box-shadow:0 0 8px rgba(0,0,0,.65)!important;
+  animation:gearOilFlow .45s linear infinite!important;
+}
+@keyframes gearOilFlow{to{background-position:0 15px,0 0}}
+#gearOilPanCanvas{transform:translateY(40%)!important}
+#oilSpillPuddle{
+  background:radial-gradient(ellipse at center,rgba(52,34,10,.98) 0 45%,rgba(28,18,7,.96) 60%,rgba(14,9,4,.18) 78%,transparent 82%)!important;
+}`;
+      document.head.appendChild(st);
+    }
+  }catch(e){}
     installSpookyFirstJobWaypoint();
     applyNight();
     makeNightSky();
