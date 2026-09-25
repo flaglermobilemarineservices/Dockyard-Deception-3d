@@ -18,7 +18,7 @@
   };
 
   const H=window.DOCKYARD_HALLOWEEN={
-    wave:0,rickHP:100,gageHP:100,rickDown:false,gageDown:false,
+    wave:0,rickHP:150,gageHP:150,rickMax:150,gageMax:150,rickDown:false,gageDown:false,foods:[],
     enemies:[],started:false,nextGageHit:0,nextRickHit:0,
     gagePunchAction:null,gageKickAction:null,gageHitAction:null,gageDeadAction:null,gageKickNext:false,
     enemyHitClip:null,enemyDeadClip:null,
@@ -88,7 +88,9 @@
       '@media(pointer:coarse) and (orientation:landscape){.actionGrid{left:50%!important;right:auto!important;transform:translateX(-50%)!important;bottom:max(6px,env(safe-area-inset-bottom))!important;top:auto!important;width:auto!important;max-width:56vw!important;display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;justify-content:center!important;align-items:center!important;gap:8px!important}}'+
       // Non-blocking "rotate your phone" banner, only in portrait on touch devices.
       '#hlRotateHint{display:none;position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);z-index:200000;pointer-events:none;background:rgba(3,5,12,.88);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:8px 16px;font:700 12px/1.2 system-ui,sans-serif;color:#fff;white-space:nowrap}'+
-      '@media(pointer:coarse) and (orientation:portrait){#hlRotateHint{display:block}}';
+      '@media(pointer:coarse) and (orientation:portrait){#hlRotateHint{display:block}}'+
+      // Manatee "FUCK YOU!" yell removed (the TTS voice mispronounces it). The boat stays.
+      '#manateeYell{display:none!important;visibility:hidden!important}';
     document.head.appendChild(s);
   }
 
@@ -106,8 +108,8 @@
   function updateHud(){
     const r=document.getElementById('rickHealthFill'),g=document.getElementById('gageHealthFill');
     const rt=document.getElementById('rickHealthText'),gt=document.getElementById('gageHealthText');
-    if(r)r.style.width=Math.max(0,H.rickHP)+'%';
-    if(g)g.style.width=Math.max(0,H.gageHP)+'%';
+    if(r)r.style.width=Math.max(0,100*H.rickHP/Math.max(1,H.rickMax))+'%';
+    if(g)g.style.width=Math.max(0,100*H.gageHP/Math.max(1,H.gageMax))+'%';
     if(rt)rt.textContent=Math.round(H.rickHP);
     if(gt)gt.textContent=Math.round(H.gageHP);
   }
@@ -682,8 +684,89 @@
     return nearbySpawnPoint(fallbackPos,slot);
   }
 
-  function spawnWave(n){
-    H.wave=n;
+  // ---- Food pickups: walk over one to heal 30 HP ----
+  const FOOD_EMOJI=['🍔','🍕','🌮','🍎','🍩','🍗'];
+  const _foodTexCache={};
+  function foodTexture(emoji){
+    if(_foodTexCache[emoji])return _foodTexCache[emoji];
+    const c=document.createElement('canvas');c.width=c.height=128;
+    const x=c.getContext('2d');
+    x.font='96px serif';x.textAlign='center';x.textBaseline='middle';
+    x.fillText(emoji,64,70);
+    const t=new THREE.CanvasTexture(c);
+    _foodTexCache[emoji]=t;
+    return t;
+  }
+  function spawnFood(){
+    try{
+      if(H.foods.length>=6||typeof scene==='undefined')return;
+      for(let i=0;i<14;i++){
+        const x=Math.random()*16-8, z=-14-Math.random()*16;
+        const y=getWalkSurfaceY(x,z);
+        if(y===null||typeof y==='undefined')continue;
+        const emoji=FOOD_EMOJI[(Math.random()*FOOD_EMOJI.length)|0];
+        const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:foodTexture(emoji),transparent:true,depthWrite:false}));
+        sp.position.set(x,y+0.85,z);
+        sp.scale.set(0.85,0.85,1);
+        scene.add(sp);
+        H.foods.push({sprite:sp,baseY:y+0.85,phase:Math.random()*6.283});
+        break;
+      }
+    }catch(e){}
+  }
+  function healPlayer(who,n){
+    try{
+      if(who==='rick'){
+        if(H.rickDown)return;
+        H.rickHP=Math.min(H.rickMax,H.rickHP+n);
+      }else{
+        if(H.gageDown)return;
+        H.gageHP=Math.min(H.gageMax,H.gageHP+n);
+      }
+      updateHud();
+    }catch(e){}
+  }
+  function chompSound(){
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC)return;
+      const ctx=new AC();
+      [0,0.09].forEach((d,i)=>{
+        const o=ctx.createOscillator(),g=ctx.createGain();
+        o.type='sine';
+        o.frequency.setValueAtTime(i?430:540,ctx.currentTime+d);
+        o.frequency.exponentialRampToValueAtTime(170,ctx.currentTime+d+0.08);
+        g.gain.setValueAtTime(0.22,ctx.currentTime+d);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d+0.09);
+        o.connect(g);g.connect(ctx.destination);
+        o.start(ctx.currentTime+d);o.stop(ctx.currentTime+d+0.1);
+      });
+      setTimeout(()=>{try{ctx.close();}catch(e){}},600);
+    }catch(e){}
+  }
+  function updateFoods(){
+    try{
+      const t=performance.now()/1000;
+      const rickP=(controller&&controller.pos&&!H.rickDown)?controller.pos:null;
+      const gageP=(typeof gageNPC!=='undefined'&&gageNPC&&!H.gageDown)?gageNPC.position:null;
+      for(let i=H.foods.length-1;i>=0;i--){
+        const f=H.foods[i];
+        f.sprite.position.y=f.baseY+Math.sin(t*2.4+f.phase)*0.12;
+        let eater=null;
+        if(rickP&&Math.hypot(f.sprite.position.x-rickP.x,f.sprite.position.z-rickP.z)<1.35)eater='rick';
+        else if(gageP&&Math.hypot(f.sprite.position.x-gageP.x,f.sprite.position.z-gageP.z)<1.35)eater='gage';
+        if(eater){
+          healPlayer(eater,30);
+          chompSound();
+          try{scene.remove(f.sprite);f.sprite.material.dispose();}catch(e){}
+          H.foods.splice(i,1);
+          setTimeout(()=>{try{spawnFood();}catch(e){}},4000+Math.random()*5000);
+        }
+      }
+    }catch(e){}
+  }
+
+  function spawnWave(n){    H.wave=n;
 
     const rickPos=(controller&&controller.pos)?controller.pos:new THREE.Vector3(0,0,-27);
     const gagePos=(typeof gageNPC!=='undefined'&&gageNPC)?gageNPC.position:rickPos;
@@ -868,7 +951,7 @@
       }catch(e){}
 
       setTimeout(()=>{
-        H.rickHP=100;
+        H.rickHP=H.rickMax;
         H.rickDown=false;
         updateHud();
 
@@ -942,7 +1025,7 @@
       }catch(e){}
 
       setTimeout(()=>{
-        H.gageHP=100;
+        H.gageHP=H.gageMax;
         H.gageDown=false;
         updateHud();
 
@@ -1151,6 +1234,27 @@
       k.addEventListener('pointerleave',stopHoldK);
       grid.appendChild(k);
     }
+    // Button order: dance, flip, jump, punch, kick, run (works in flex + grid layouts).
+    orderActionButtons();
+    setTimeout(orderActionButtons,2500);
+  }
+
+  function orderActionButtons(){
+    try{
+      const grid=document.querySelector('.actionGrid');
+      if(!grid)return;
+      const orderFor=el=>{
+        if(el.id==='halloweenPunchBtn')return 4;
+        if(el.id==='halloweenKickBtn')return 5;
+        const t=(el.textContent||'').toLowerCase();
+        if(t.indexOf('dance')>=0)return 1;
+        if(t.indexOf('flip')>=0)return 2;
+        if(t.indexOf('jump')>=0)return 3;
+        if(t.indexOf('run')>=0)return 6;
+        return 7;
+      };
+      Array.prototype.forEach.call(grid.children,el=>{el.style.order=orderFor(el);});
+    }catch(e){}
   }
 
   function loadCombatAnimations(){
@@ -1403,7 +1507,7 @@
         );
       }else if(now>=e.nextAttack){
         e.nextAttack=now+(e.type==='skeleton'?900:1120);
-        const damage=e.type==='skeleton'?9:12;
+        const damage=e.type==='skeleton'?5:6;
 
         if(target==='gage')hurtGage(damage);
         else hurtRick(damage);
@@ -1508,6 +1612,7 @@
       if(typeof scene==='undefined'||typeof gltfLoader==='undefined'||typeof controller==='undefined')return;
       H.started=true;
       spawnWave(1);
+      for(let i=0;i<6;i++)spawnFood();
       loadCombatAnimations();
     }catch(e){console.warn('Halloween start:',e)}
   }
@@ -1524,6 +1629,7 @@
     if(!H.started)return;
 
     updateEnemies(dt,now);
+    updateFoods();
     gageFight(dt,now);
     updateSpookyWaypoint(now);
   }
@@ -1551,6 +1657,12 @@
       }
     }catch(e){}
     installFiveMinuteDeclineCooldown();
+    // Remove the manatee's "FUCK YOU!" yell (TTS mispronounces it). Boat itself stays.
+    try{
+      yellFromManatee=function(){};
+      const my=document.getElementById('manateeYell');
+      if(my){my.classList.remove('show');my.style.visibility='hidden';}
+    }catch(e){}
     installSpookyFirstJobWaypoint();
     applyNight();
     makeNightSky();
