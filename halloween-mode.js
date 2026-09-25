@@ -431,7 +431,9 @@
          When a second player joins (2-player), Gage's theme takes over. */
       setMusicScene=async function(sceneName,reset){
         musicScene=sceneName;
-        if(!musicStarted)return playMusicIndex(musicIndex,!!reset);
+        // Never block game entry on audio: kick off playback but don't await it.
+        // (A hung Audio.play() promise would otherwise freeze ENTER DOCKYARD.)
+        if(!musicStarted){playMusicIndex(musicIndex,!!reset);return true;}
         return true;
       };
 
