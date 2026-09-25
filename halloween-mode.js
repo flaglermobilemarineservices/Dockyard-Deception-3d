@@ -898,13 +898,37 @@
     }catch(e){}
   }
 
+  function aliveOfType(t){
+    let n=0;
+    for(const e of H.enemies)if(!e.dead&&!e.removed&&e.type===t)n++;
+    return n;
+  }
+
+  // Trickle spawner: at most 2 of each type alive at once. A wave's full quota
+  // still arrives over time — replacements spawn as monsters die.
+  function trickleSpawn(){
+    if(!H.waveQuota)return;
+    try{
+      const rickPos=(controller&&controller.pos)?controller.pos:new THREE.Vector3(0,0,-27);
+      const gagePos=(typeof gageNPC!=='undefined'&&gageNPC)?gageNPC.position:rickPos;
+      for(const t of ['zombie','skeleton']){
+        let guard=0;
+        while(aliveOfType(t)<2&&H.waveQuota[t]>0&&guard++<4){
+          H.waveQuota[t]--;
+          spawnNear(t,t==='zombie'?rickPos:gagePos,Math.floor(Math.random()*8));
+        }
+      }
+    }catch(e){}
+  }
+
   function spawnWave(n){    H.wave=n;
 
     const rickPos=(controller&&controller.pos)?controller.pos:new THREE.Vector3(0,0,-27);
     const gagePos=(typeof gageNPC!=='undefined'&&gageNPC)?gageNPC.position:rickPos;
 
-    // Endless doubling waves: 1+1, 2+2, 4+4, 8+8, 16+16, then hold at 16 each
-    // (doubling forever would melt the phone).
+    // Endless doubling waves: 1+1, 2+2, 4+4, 8+8, 16+16, then hold at 16 each.
+    // At most 2 of each type are alive at once — the rest of the wave's quota
+    // trickles in as monsters die (max 4 concurrent enemies, phone-friendly).
     let count=Math.pow(2,n-1);
     const MAX_EACH=16;
     if(count>MAX_EACH)count=MAX_EACH;
@@ -912,18 +936,16 @@
     const zs=count===1?'ZOMBIE':'ZOMBIES',ss=count===1?'SKELETON':'SKELETONS';
     setWaveText('WAVE '+n+' • '+count+' '+zs+' + '+count+' '+ss);
 
+    H.waveQuota={zombie:count,skeleton:count};
     if(n===1){
-      // Top-deck startup spawns.
+      // Top-deck startup spawns (count against the quota).
       const zombieTop=pickFixedSpawn([[6.35,-23],[6.35,-18],[3.2,-23]],rickPos,0);
       const skeletonTop=pickFixedSpawn([[-6.35,-23],[-6.35,-18],[-3.2,-23]],gagePos,2);
       spawnEnemy('zombie',zombieTop[0],zombieTop[1]);
       spawnEnemy('skeleton',skeletonTop[0],skeletonTop[1]);
-    }else{
-      for(let i=0;i<count;i++){
-        spawnNear('zombie',i%2?gagePos:rickPos,i);
-        spawnNear('skeleton',i%2?rickPos:gagePos,count+i);
-      }
+      H.waveQuota.zombie--;H.waveQuota.skeleton--;
     }
+    trickleSpawn();
   }
 
   function aliveEnemies(){
@@ -1015,6 +1037,7 @@
     setTimeout(()=>{
       if(e.group.parent)e.group.parent.remove(e.group);
       e.removed=true;
+      trickleSpawn();
       checkWave();
     },dur*1000+250);
   }
