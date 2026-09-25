@@ -17,14 +17,52 @@
     return root+encodeURIComponent(name).replace(/%2F/g,'/');
   };
 
-  // Swap the base game's loading artwork for our Halloween art. The <img> is
-  // already parsed (it sits before the main script), and this runs during the
-  // initial script execution, so the swap lands before loading finishes.
-  // Relative URL: after document.write the document URL is still the Pages site.
+  // Loading art: swap the base game's loader artwork for our Halloween art.
+  // The <img> is already parsed (it sits before the main script), and this runs
+  // during the initial script execution, so the swap lands before loading
+  // finishes. Relative URL: after document.write the document URL is still the
+  // Pages site. Re-assert for ~10s in case anything resets it; preload warms it.
+  const HL_ART_URL='halloween-loading.webp';
+  function hlSwapLoadingArt(){
+    try{
+      const la=document.getElementById('loadingArtwork');
+      if(la&&la.getAttribute('src')!==HL_ART_URL)la.src=HL_ART_URL;
+    }catch(e){}
+  }
+  hlSwapLoadingArt();
   try{
-    const la=document.getElementById('loadingArtwork');
-    if(la&&!la.__halloweenArt){la.__halloweenArt=true;la.src='halloween-loading.webp';}
+    const _pre=new Image();_pre.src=HL_ART_URL;
+    let _n=0;const _iv=setInterval(()=>{hlSwapLoadingArt();if(++_n>=10)clearInterval(_iv);},1000);
   }catch(e){}
+
+  // Flicker transition: when ENTER DOCKYARD is tapped, the loader hides and
+  // gameplay appears. Cover that cut with a fullscreen of the loading art that
+  // strobes on/off a few times (horror-flicker), then removes itself. Purely
+  // visual — pointer-events:none, so it can't interfere with game logic. If the
+  // art fails to load we skip it and the normal instant transition happens.
+  let _hlFlickerDone=false;
+  function hlFlickerTransition(){
+    if(_hlFlickerDone)return;_hlFlickerDone=true;
+    try{
+      const im=new Image();
+      let begun=false;
+      im.onload=()=>{
+        if(begun)return;begun=true;
+        try{
+          const d=document.createElement('div');
+          d.id='hlFlicker';
+          document.body.appendChild(d);
+          void d.offsetWidth; // reflow so the animation starts cleanly
+          d.classList.add('go');
+          const kill=()=>{try{if(d.parentNode)d.parentNode.removeChild(d);}catch(e){}};
+          d.addEventListener('animationend',kill);
+          setTimeout(kill,2000); // backstop
+        }catch(e){}
+      };
+      im.onerror=()=>{};
+      im.src=HL_ART_URL;
+    }catch(e){}
+  }
 
   const H=window.DOCKYARD_HALLOWEEN={
     wave:0,rickHP:150,gageHP:150,rickMax:150,gageMax:150,rickDown:false,gageDown:false,foods:[],
@@ -111,6 +149,9 @@
       '#gageHealthFill{background:linear-gradient(90deg,#5ab8ff,#8ce8ff)!important}'+
       '#halloweenWave{text-align:center;margin-top:5px;font-size:10px;font-weight:1000;letter-spacing:.08em;color:#f3d7ff}'+
       '#hlVignette{position:fixed;inset:0;pointer-events:none;z-index:120;background:radial-gradient(ellipse at center,transparent 58%,rgba(2,4,10,.42) 100%)}'+
+      '#hlFlicker{position:fixed;inset:0;z-index:1000001;pointer-events:none;background:#01040b url(\'halloween-loading.webp\') center/cover no-repeat;opacity:0}'+
+      '#hlFlicker.go{animation:hlFlicker 1.25s linear forwards}'+
+      '@keyframes hlFlicker{0%{opacity:1}7%{opacity:0}11%{opacity:1}19%{opacity:0}23%{opacity:1}37%{opacity:0}41%{opacity:.85}54%{opacity:.1}58%{opacity:1}71%{opacity:0}76%{opacity:.7}100%{opacity:0}}'+
       '#halloweenPunchBtn{background:rgba(112,34,38,.94)!important;border-color:rgba(255,150,150,.7)!important;opacity:.97!important}'+
       '#halloweenKickBtn{background:rgba(30,58,112,.94)!important;border-color:rgba(150,190,255,.7)!important;opacity:.97!important}'+
       '.actionGrid{width:74px!important;justify-items:center!important;gap:8px!important}.actionGrid .act{width:64px!important;height:64px!important;min-height:64px!important;border-radius:50%!important;padding:5px!important;line-height:1.02!important;font-size:9px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}.actionGrid .act.trick{min-height:64px!important;height:64px!important;font-size:9px!important}'+
@@ -1892,6 +1933,10 @@
         startBtn.addEventListener('click',()=>{
           try{if(typeof enterGameFullscreen==='function')enterGameFullscreen();}catch(e){}
         });
+      }
+      if(startBtn&&!startBtn.__hlFlicker){
+        startBtn.__hlFlicker=true;
+        startBtn.addEventListener('click',()=>{try{hlFlickerTransition();}catch(e){}},true);
       }
     }catch(e){}
     installFiveMinuteDeclineCooldown();
