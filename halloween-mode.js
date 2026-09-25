@@ -800,7 +800,7 @@
 
     // Hit reaction when hurt but still standing.
     if(H.rickHP>0){
-      try{playRickCombat('hit',1.15,1.15);}
+      try{playRickCombat('hit',1.2,1.2,0.55);}
       catch(e){}
     }
 
@@ -947,9 +947,9 @@
     }catch(e){}
   }
 
-  function lockRickCombat(a,timeScale){
+  function lockRickCombat(a,timeScale,startAt){
     try{
-      const d=a.getClip().duration/(timeScale||1);
+      const d=Math.max(0.25,(a.getClip().duration-(startAt||0))/(timeScale||1));
       rickCombatLockUntil=performance.now()+d*1000+180;
     }catch(e){rickCombatLockUntil=performance.now()+900;}
   }
@@ -958,18 +958,25 @@
   // locomotion driver and holds the final pose until the clip finishes, so the
   // driver blends cleanly back to idle/walk/run. Mid-flip: blends over the
   // aerial flip like before (the driver is silent mid-air).
-  function playRickCombat(clipKey,timeScale,flipScale){
+  // startAt skips the clip's wind-up so the hit lands fast after the press
+  // (the raw punch/kick/hit clips all idle for ~1s before the real motion).
+  function playRickCombat(clipKey,timeScale,flipScale,startAt){
     const a=actions&&actions[clipKey];
     if(!a)return;
     const flipping=!!(controller&&controller.special&&controller.specialName==='backflip');
     a.stop();
     a.reset();
     a.enabled=true;
+    const t0=Math.max(0,startAt||0);
+    const skipTo=function(){
+      try{if(t0>0)a.time=Math.min(t0,a.getClip().duration*0.9);}catch(e){}
+    };
     if(flipping){
       a.setEffectiveTimeScale(flipScale||1.35);
       a.setEffectiveWeight(.72);
       a.setLoop(THREE.LoopOnce,1);
       a.clampWhenFinished=false;
+      skipTo();
       a.fadeIn(.015).play();
       return;
     }
@@ -981,7 +988,8 @@
     if(typeof currentAction!=='undefined'&&currentAction&&currentAction!==a)currentAction.fadeOut(.03);
     if(typeof currentAction!=='undefined')currentAction=a;
     if(typeof currentName!=='undefined')currentName=clipKey;
-    lockRickCombat(a,timeScale);
+    skipTo();
+    lockRickCombat(a,timeScale,t0);
     a.fadeIn(.03).play();
   }
 
@@ -993,7 +1001,7 @@
 
     // Visual punch happens on EVERY press (restarts if mashed). During a flip it blends over the flip
     // instead of cancelling the aerial move, so Rick can land several hits mid-flip.
-    try{playRickCombat('punch',1.12,1.35);}
+    try{playRickCombat('punch',1.3,1.35,0.55);}
     catch(e){console.warn('Rick punch animation:',e)}
 
     // One damage attempt per deliberate button press. Slightly more reach in the air.
@@ -1013,7 +1021,7 @@
 
     // Visual kick happens on EVERY press (restarts if mashed). During a flip it blends over the flip
     // instead of cancelling the aerial move, so Rick can land hits mid-flip.
-    try{playRickCombat('kick',1.08,1.3);}
+    try{playRickCombat('kick',1.3,1.3,1.05);}
     catch(e){console.warn('Rick kick animation:',e)}
 
     // Kicks hit a little harder with a touch more reach than punches.
@@ -1271,6 +1279,8 @@
 
           act.reset();
           act.enabled=true;
+          act.setEffectiveTimeScale(1.15);
+          try{act.time=Math.min(useKick?1.05:0.55,act.getClip().duration*0.9);}catch(e){}
           act.setEffectiveWeight(1);
           act.setLoop(THREE.LoopOnce,1);
           act.clampWhenFinished=true;
