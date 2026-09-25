@@ -427,20 +427,51 @@
       };
 
       /* Halloween uses one uninterrupted playlist:
-         new song once -> old Song 1 -> old Song 2 -> old Song 3 -> old Song 1... */
+         new song once -> old Song 1 -> old Song 2 -> old Song 3 -> old Song 1...
+         When a second player joins (2-player), Gage's theme takes over. */
       setMusicScene=async function(sceneName,reset){
         musicScene=sceneName;
         if(!musicStarted)return playMusicIndex(musicIndex,!!reset);
         return true;
       };
 
+      // Gage's theme for 2-player: joins the playlist, loops while 2P is active.
+      let gageTrackIndex=-1;
+      try{
+        const gageTrack=new Audio(halloweenAsset('boat_daddy_rides.mp3'));
+        gageTrack.preload='auto';
+        gageTrack.playsInline=true;
+        gageTrack.loop=false;
+        musicPlaylist.push(gageTrack);
+        gageTrackIndex=musicPlaylist.length-1;
+      }catch(e){console.warn('Halloween gage track:',e)}
+
+      H.musicMode='rick';
+
       musicPlaylist.forEach((a,i)=>{
         a.addEventListener('ended',()=>{
           if(!musicWanted||i!==musicIndex)return;
-          const next=(i===0)?1:((i>=musicPlaylist.length-1)?1:i+1);
+          if(H.musicMode==='gage'&&gageTrackIndex>=0){playMusicIndex(gageTrackIndex,true);return;}
+          const last=musicPlaylist.length-1-(gageTrackIndex>=0?1:0);
+          const next=(i===0)?1:((i>=last)?1:i+1);
           playMusicIndex(next,true);
         });
       });
+
+      // Watch for a second player joining/leaving and swap the theme.
+      setInterval(()=>{
+        try{
+          if(typeof multiplayer==='undefined'||!multiplayer)return;
+          const twoP=!!multiplayer.connected;
+          if(twoP&&H.musicMode!=='gage'&&gageTrackIndex>=0){
+            H.musicMode='gage';
+            playMusicIndex(gageTrackIndex,true);
+          }else if(!twoP&&H.musicMode!=='rick'){
+            H.musicMode='rick';
+            playMusicIndex(0,true);
+          }
+        }catch(e){}
+      },2000);
 
       musicPlaylist.forEach(a=>{try{a.pause()}catch(e){}});
       musicStarted=false;
@@ -606,19 +637,26 @@
     const rickPos=(controller&&controller.pos)?controller.pos:new THREE.Vector3(0,0,-27);
     const gagePos=(typeof gageNPC!=='undefined'&&gageNPC)?gageNPC.position:rickPos;
 
+    // Endless doubling waves: 1+1, 2+2, 4+4, 8+8, 16+16, then hold at 16 each
+    // (doubling forever would melt the phone).
+    let count=Math.pow(2,n-1);
+    const MAX_EACH=16;
+    if(count>MAX_EACH)count=MAX_EACH;
+
+    const zs=count===1?'ZOMBIE':'ZOMBIES',ss=count===1?'SKELETON':'SKELETONS';
+    setWaveText('WAVE '+n+' • '+count+' '+zs+' + '+count+' '+ss);
+
     if(n===1){
-      setWaveText('WAVE 1 • ZOMBIE + SKELETON');
       // Top-deck startup spawns.
       const zombieTop=pickFixedSpawn([[6.35,-23],[6.35,-18],[3.2,-23]],rickPos,0);
       const skeletonTop=pickFixedSpawn([[-6.35,-23],[-6.35,-18],[-3.2,-23]],gagePos,2);
       spawnEnemy('zombie',zombieTop[0],zombieTop[1]);
       spawnEnemy('skeleton',skeletonTop[0],skeletonTop[1]);
     }else{
-      setWaveText('WAVE 2 • 2 ZOMBIES + 2 SKELETONS');
-      spawnNear('zombie',rickPos,1);
-      spawnNear('zombie',gagePos,3);
-      spawnNear('skeleton',rickPos,4);
-      spawnNear('skeleton',gagePos,6);
+      for(let i=0;i<count;i++){
+        spawnNear('zombie',i%2?gagePos:rickPos,i);
+        spawnNear('skeleton',i%2?rickPos:gagePos,count+i);
+      }
     }
   }
 
@@ -712,15 +750,12 @@
   function checkWave(){
     if(aliveEnemies().length)return;
 
-    if(H.wave===1){
-      setWaveText('WAVE 1 CLEAR • MORE ARE COMING…');
-      setTimeout(()=>{
-        if(H.wave===1)spawnWave(2);
-      },2200);
-    }else if(H.wave===2){
-      H.wave=3;
-      setWaveText('DOCK CLEAR ✓ • HALLOWEEN NIGHT SURVIVED');
-    }
+    // Endless waves: clearing a wave spawns the next, doubled.
+    const cur=H.wave;
+    setWaveText('WAVE '+cur+' CLEAR • MORE ARE COMING…');
+    setTimeout(()=>{
+      if(H.wave===cur)spawnWave(cur+1);
+    },2200);
   }
 
   function tryMove(group,dir,speed,dt){
@@ -797,11 +832,7 @@
 
         try{play('idle',{fade:.08})}catch(e){}
 
-        setWaveText(
-          H.wave===1?'WAVE 1 • FIGHT!':
-          H.wave===2?'WAVE 2 • FIGHT!':
-          'DOCK CLEAR ✓'
-        );
+        setWaveText('WAVE '+H.wave+' • FIGHT!');
       },3000);
     }
   }
@@ -873,11 +904,7 @@
           gageSetAction('idle');
         }catch(e){}
 
-        setWaveText(
-          H.wave===1?'WAVE 1 • FIGHT!':
-          H.wave===2?'WAVE 2 • FIGHT!':
-          'DOCK CLEAR ✓'
-        );
+        setWaveText('WAVE '+H.wave+' • FIGHT!');
       },3500);
     }
   }
@@ -1022,7 +1049,17 @@
         e.stopPropagation();
         rickPunch();
       };
-      b.addEventListener('pointerdown',fire,{passive:false});
+      // Tap = one punch. Hold = keep punching (repeat while held).
+      let holdT=null;
+      const stopHold=()=>{if(holdT){clearInterval(holdT);holdT=null;}};
+      b.addEventListener('pointerdown',e=>{
+        fire(e);
+        stopHold();
+        holdT=setInterval(()=>{try{rickPunch();}catch(_){}},450);
+      },{passive:false});
+      b.addEventListener('pointerup',stopHold);
+      b.addEventListener('pointercancel',stopHold);
+      b.addEventListener('pointerleave',stopHold);
       grid.appendChild(b);
     }
     if(grid&&!document.getElementById('halloweenKickBtn')){
@@ -1038,7 +1075,17 @@
         e.stopPropagation();
         rickKick();
       };
-      k.addEventListener('pointerdown',fireK,{passive:false});
+      // Tap = one kick. Hold = keep kicking (repeat while held).
+      let holdTK=null;
+      const stopHoldK=()=>{if(holdTK){clearInterval(holdTK);holdTK=null;}};
+      k.addEventListener('pointerdown',e=>{
+        fireK(e);
+        stopHoldK();
+        holdTK=setInterval(()=>{try{rickKick();}catch(_){}},450);
+      },{passive:false});
+      k.addEventListener('pointerup',stopHoldK);
+      k.addEventListener('pointercancel',stopHoldK);
+      k.addEventListener('pointerleave',stopHoldK);
       grid.appendChild(k);
     }
   }
