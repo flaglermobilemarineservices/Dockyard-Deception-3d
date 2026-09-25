@@ -1757,6 +1757,20 @@
       const my=document.getElementById('manateeYell');
       if(my){my.classList.remove('show');my.style.visibility='hidden';}
     }catch(e){}
+    // Calm the gear-oil minigame wind: dampen every wind value the base game
+    // computes, so the stream sway, tilt, readout AND catch collision all get
+    // gentler together (0.55x).
+    try{
+      if(typeof serviceState!=='undefined'&&serviceState&&!serviceState.__windDamped){
+        serviceState.__windDamped=true;
+        let _wind=0;
+        Object.defineProperty(serviceState,'wind',{
+          configurable:true,
+          get(){return _wind;},
+          set(v){_wind=(typeof v==='number')?v*0.55:v;}
+        });
+      }
+    }catch(e){}
     installSpookyFirstJobWaypoint();
     applyNight();
     makeNightSky();
