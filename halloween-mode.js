@@ -27,6 +27,47 @@
     _howlT:null,_howlInit:false,howlCtx:null
   };
 
+  // Coarse pointer or small screen => phone-class GPU. The base game renders at
+  // up to 1.75x pixel ratio with two shadow-casting lights; both are brutal on
+  // mobile fill rate, so we run a lighter profile there.
+  const PERF_MOBILE=(function(){
+    try{
+      if(typeof matchMedia==='function'&&matchMedia('(pointer:coarse)').matches)return true;
+      if(typeof screen!=='undefined'&&Math.min(screen.width||9999,screen.height||9999)<760)return true;
+    }catch(e){}
+    return false;
+  })();
+
+  function applyPerfProfile(){
+    try{
+      // 1) Cap render resolution on mobile. The base resize handler keeps
+      //    calling setPixelRatio(1.75), so clamp every call through a wrapper.
+      if(PERF_MOBILE&&typeof renderer!=='undefined'&&renderer&&!renderer.__perfPRWrapped){
+        renderer.__perfPRWrapped=true;
+        const rawPR=renderer.setPixelRatio.bind(renderer);
+        renderer.setPixelRatio=function(pr){return rawPR(Math.min(pr||1,1));};
+        renderer.setPixelRatio(Math.min(typeof devicePixelRatio!=='undefined'?devicePixelRatio:1,1));
+      }
+      // 2) Shadows off. At night they're barely visible, but the sun and our
+      //    moon light each re-render every skinned character into a shadow
+      //    map every frame. Kill the lights' shadow casting and the map itself.
+      if(typeof scene!=='undefined'&&scene){
+        scene.traverse(o=>{try{if(o.isLight)o.castShadow=false;}catch(e){}});
+      }
+      if(typeof renderer!=='undefined'&&renderer&&renderer.shadowMap){
+        renderer.shadowMap.enabled=false;
+      }
+      // Materials compiled with shadow support need one refresh after the toggle.
+      if(typeof scene!=='undefined'&&scene){
+        scene.traverse(o=>{
+          if(!o.material)return;
+          const ms=Array.isArray(o.material)?o.material:[o.material];
+          for(const m of ms){try{m.needsUpdate=true;}catch(e){}}
+        });
+      }
+    }catch(e){console.warn('perf profile:',e)}
+  }
+
   function addStyles(){
     const s=document.createElement('style');
     s.textContent=
@@ -217,7 +258,7 @@
           'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}',
           'float noise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);vec2 u=f*f*(3.0-2.0*f);',
           ' return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),u.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),u.x),u.y);}',
-          'float fbm(vec2 p){float v=0.0;float a=0.5;for(int k=0;k<5;k++){v+=a*noise(p);p=p*2.03+vec2(17.3,9.1);a*=0.5;}return v;}',
+          'float fbm(vec2 p){float v=0.0;float a=0.5;for(int k=0;k<'+(PERF_MOBILE?3:5)+';k++){v+=a*noise(p);p=p*2.03+vec2(17.3,9.1);a*=0.5;}return v;}',
           'void main(){',
           ' vec3 d=normalize(vWorld-cameraPosition);',
           ' float h=clamp(d.y,-0.15,1.0);',
@@ -564,6 +605,7 @@
 
     fill.position.z=.006;
     grp.add(bg,fill);
+    grp.visible=false; // shown by updateEnemyBar once the enemy takes damage
     root.add(grp);
 
     root.userData.hpBar=grp;
@@ -671,6 +713,10 @@
     if(!f||!b)return;
 
     const ratio=Math.max(0,e.hp/e.maxHP);
+    // Hide the bar while the enemy is at full HP: 2 fewer draw calls per
+    // undamaged enemy (up to 64 fewer in late waves).
+    b.visible=ratio<1;
+    if(!b.visible)return;
     f.scale.x=ratio;
     f.position.x=-.45*(1-ratio);
     b.quaternion.copy(camera.quaternion);
@@ -1292,6 +1338,8 @@
     }
   }
 
+  const _enemyDir=new THREE.Vector3();
+
   function updateEnemies(dt,now){
     const paused=
       (typeof callState!=='undefined'&&callState.active)||
@@ -1328,7 +1376,7 @@
         }
       }
 
-      const dir=new THREE.Vector3().subVectors(tp,e.group.position);
+      const dir=_enemyDir.subVectors(tp,e.group.position);
       dir.y=0;
       const dist=dir.length();
 
@@ -1474,6 +1522,7 @@
     installSpookyFirstJobWaypoint();
     applyNight();
     makeNightSky();
+    applyPerfProfile();
     addFullMoon();
     addWebs();
     setupMusic();
