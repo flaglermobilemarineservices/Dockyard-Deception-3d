@@ -744,6 +744,60 @@
       setTimeout(()=>{try{ctx.close();}catch(e){}},600);
     }catch(e){}
   }
+  // ---- Combat SFX (tiny Web Audio synth, one shared context) ----
+  let _sfxCtx=null;
+  function sfxCtx(){
+    try{
+      if(!_sfxCtx){
+        const AC=window.AudioContext||window.webkitAudioContext;
+        if(!AC)return null;
+        _sfxCtx=new AC();
+      }
+      if(_sfxCtx.state==='suspended')_sfxCtx.resume().catch(()=>{});
+      return _sfxCtx;
+    }catch(e){return null;}
+  }
+  function sfxTone(f0,f1,dur,type,vol,delay){
+    try{
+      const ctx=sfxCtx();if(!ctx)return;
+      const t=ctx.currentTime+(delay||0);
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type=type||'sine';
+      o.frequency.setValueAtTime(Math.max(1,f0),t);
+      o.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);
+      g.gain.setValueAtTime(vol||0.3,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      o.connect(g);g.connect(ctx.destination);
+      o.start(t);o.stop(t+dur+0.02);
+    }catch(e){}
+  }
+  function sfxNoise(dur,vol,fType,f0,f1,delay){
+    try{
+      const ctx=sfxCtx();if(!ctx)return;
+      const t=ctx.currentTime+(delay||0);
+      const len=Math.max(1,(dur*ctx.sampleRate)|0);
+      const buf=ctx.createBuffer(1,len,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+      const src=ctx.createBufferSource();src.buffer=buf;
+      const fl=ctx.createBiquadFilter();fl.type=fType||'lowpass';
+      fl.frequency.setValueAtTime(f0||1000,t);
+      if(f1)fl.frequency.exponentialRampToValueAtTime(f1,t+dur);
+      const g=ctx.createGain();
+      g.gain.setValueAtTime(vol||0.3,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      src.connect(fl);fl.connect(g);g.connect(ctx.destination);
+      src.start(t);src.stop(t+dur+0.02);
+    }catch(e){}
+  }
+  function sfxPunchHit(){sfxNoise(0.09,0.5,'lowpass',900,300);sfxTone(210,70,0.1,'sine',0.5);}
+  function sfxKickHit(){sfxNoise(0.12,0.55,'lowpass',600,200);sfxTone(150,45,0.14,'sine',0.55);}
+  function sfxWhiff(){sfxNoise(0.14,0.12,'bandpass',500,2400);}
+  function sfxHurt(){sfxTone(240,110,0.16,'square',0.22);sfxNoise(0.1,0.15,'lowpass',700,300);}
+  function sfxEnemyDie(){sfxTone(320,55,0.22,'sawtooth',0.25);sfxNoise(0.18,0.3,'lowpass',1200,250);}
+  function sfxGageHit(){sfxNoise(0.08,0.4,'lowpass',1000,350);sfxTone(230,80,0.09,'triangle',0.4);}
+  function sfxRevive(){sfxTone(300,600,0.18,'sine',0.3);sfxTone(450,900,0.22,'sine',0.25,0.1);}
+
   function updateFoods(){
     try{
       const t=performance.now()/1000;
@@ -853,6 +907,7 @@
   function killEnemy(e){
     if(e.dead)return;
     e.dead=true;
+    sfxEnemyDie();
     clearTimeout(e._hitT);
 
     try{
@@ -933,6 +988,7 @@
 
     H.rickHP=Math.max(0,H.rickHP-n);
     updateHud();
+    sfxHurt();
 
     // Hit reaction when hurt but still standing.
     if(H.rickHP>0){
@@ -975,11 +1031,60 @@
     }
   }
 
+  // ---- Gage revive: walk over to a downed Gage to pick him back up ----
+  function showGageReviveMarker(){
+    try{
+      if(!H.gageReviveMarker&&typeof gageNPC!=='undefined'&&gageNPC&&typeof scene!=='undefined'){
+        const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:foodTexture('🆘'),transparent:true,depthWrite:false}));
+        sp.scale.set(1,1,1);
+        scene.add(sp);
+        H.gageReviveMarker=sp;
+      }
+      if(H.gageReviveMarker)H.gageReviveMarker.visible=true;
+    }catch(e){}
+  }
+  function hideGageReviveMarker(){
+    try{if(H.gageReviveMarker)H.gageReviveMarker.visible=false;}catch(e){}
+  }
+  function reviveGage(){
+    if(!H.gageDown)return;
+    try{
+      clearTimeout(H._gageRespawnT);
+      hideGageReviveMarker();
+      H.gageHP=Math.round(H.gageMax*0.6);
+      H.gageDown=false;
+      updateHud();
+      if(H.gageDeadAction)H.gageDeadAction.stop();
+      gageState.target=null;
+      gageState.idleUntil=0;
+      gageState.currentNode=1;
+      gageState.nextNode=0;
+      gageSetAction('idle');
+      sfxRevive();
+      setWaveText('GAGE IS BACK! • WAVE '+H.wave);
+      setTimeout(()=>{if(!H.gageDown)setWaveText('WAVE '+H.wave+' • FIGHT!');},2500);
+    }catch(e){}
+  }
+  function updateGageRevive(){
+    try{
+      if(!H.gageDown||H.rickDown)return;
+      if(typeof gageNPC==='undefined'||!gageNPC)return;
+      if(H.gageReviveMarker&&H.gageReviveMarker.visible){
+        H.gageReviveMarker.position.set(gageNPC.position.x,gageNPC.position.y+2.6,gageNPC.position.z);
+      }
+      if(controller&&controller.pos){
+        const d=Math.hypot(gageNPC.position.x-controller.pos.x,gageNPC.position.z-controller.pos.z);
+        if(d<2.0)reviveGage();
+      }
+    }catch(e){}
+  }
+
   function hurtGage(n){
     if(H.gageDown)return;
 
     H.gageHP=Math.max(0,H.gageHP-n);
     updateHud();
+    sfxHurt();
 
     // Hit reaction when hurt but still standing.
     if(H.gageHP>0){
@@ -1024,26 +1129,11 @@
         }
       }catch(e){}
 
-      setTimeout(()=>{
-        H.gageHP=H.gageMax;
-        H.gageDown=false;
-        updateHud();
-
-        if(gageNPC){
-          const y=getWalkSurfaceY(.72,-23);
-          gageNPC.position.set(.72,y===null?.18:y,-23);
-        }
-
-        try{
-          if(H.gageDeadAction)H.gageDeadAction.stop();
-          gageState.idleUntil=0;
-          gageState.currentNode=1;
-          gageState.nextNode=0;
-          gageSetAction('idle');
-        }catch(e){}
-
-        setWaveText('WAVE '+H.wave+' • FIGHT!');
-      },3500);
+      // Gage stays down until Rick walks over to revive him (auto-revive after 30s as a fallback).
+      showGageReviveMarker();
+      setWaveText('GAGE IS DOWN \u2014 WALK OVER TO REVIVE!');
+      clearTimeout(H._gageRespawnT);
+      H._gageRespawnT=setTimeout(()=>{reviveGage();},30000);
     }
   }
 
@@ -1145,7 +1235,8 @@
     if(hit){
       const dmg=flipping?31:36;
       damageEnemy(hit.e,dmg);
-    }
+      sfxPunchHit();
+    }else sfxWhiff();
     H.nextRickHit=now;
   }
 
@@ -1165,7 +1256,8 @@
     if(hit){
       const dmg=flipping?38:44;
       damageEnemy(hit.e,dmg);
-    }
+      sfxKickHit();
+    }else sfxWhiff();
     H.nextRickHit=now;
   }
 
@@ -1446,6 +1538,7 @@
       }catch(e){}
 
       damageEnemy(n.e,useKick?42:34);
+      if(useKick)sfxKickHit();else sfxGageHit();
     }
   }
 
@@ -1630,6 +1723,7 @@
 
     updateEnemies(dt,now);
     updateFoods();
+    updateGageRevive();
     gageFight(dt,now);
     updateSpookyWaypoint(now);
   }
