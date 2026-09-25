@@ -38,15 +38,38 @@
     return false;
   })();
 
+  const H_QSCALES=[1,0.85,0.7,0.55];
+  function overlayQLevel(){
+    try{
+      let lvl=H.qLevel||0;
+      if(typeof oilCatchGame!=='undefined'&&oilCatchGame&&oilCatchGame.style.display==='block')lvl++;
+      return Math.min(3,lvl);
+    }catch(e){return H.qLevel||0;}
+  }
+  function reapplyPixelRatio(){
+    try{
+      if(H._prRaw&&H._prWant)H._prRaw(H._prWant*H_QSCALES[overlayQLevel()]);
+    }catch(e){}
+  }
+
   function applyPerfProfile(){
     try{
-      // 1) Cap render resolution on mobile. The base resize handler keeps
-      //    calling setPixelRatio(1.75), so clamp every call through a wrapper.
-      if(PERF_MOBILE&&typeof renderer!=='undefined'&&renderer&&!renderer.__perfPRWrapped){
+      // 1) Dynamic resolution. The base resize handler keeps calling
+      //    setPixelRatio(1.75), so funnel every call through a wrapper. An FPS
+      //    governor (in loop()) steps H.qLevel up/down; effective ratio =
+      //    cap * Q_SCALES[qLevel], plus one extra step down while a 3D service
+      //    minigame overlay is up (the main scene keeps rendering behind it).
+      if(typeof renderer!=='undefined'&&renderer&&!renderer.__perfPRWrapped){
         renderer.__perfPRWrapped=true;
+        H._prCap=PERF_MOBILE?1:Math.min(typeof devicePixelRatio!=='undefined'?devicePixelRatio:1,1.75);
+        H.qLevel=0;H._qUpStreak=0;H._fpsN=0;H._fpsT=0;
         const rawPR=renderer.setPixelRatio.bind(renderer);
-        renderer.setPixelRatio=function(pr){return rawPR(Math.min(pr||1,1));};
-        renderer.setPixelRatio(Math.min(typeof devicePixelRatio!=='undefined'?devicePixelRatio:1,1));
+        H._prRaw=rawPR;
+        renderer.setPixelRatio=function(pr){
+          H._prWant=Math.min(pr||1,H._prCap);
+          return rawPR(H._prWant*H_QSCALES[overlayQLevel()]);
+        };
+        renderer.setPixelRatio(H._prCap);
       }
       // 2) Shadows off. At night they're barely visible, but the sun and our
       //    moon light each re-render every skinned character into a shadow
@@ -78,6 +101,7 @@
       '#halloweenHud .hhFill{height:100%;width:100%;transform-origin:left center;background:linear-gradient(90deg,#51d36f,#cfe95b)}'+
       '#gageHealthFill{background:linear-gradient(90deg,#5ab8ff,#8ce8ff)!important}'+
       '#halloweenWave{text-align:center;margin-top:5px;font-size:10px;font-weight:1000;letter-spacing:.08em;color:#f3d7ff}'+
+      '#hlVignette{position:fixed;inset:0;pointer-events:none;z-index:120;background:radial-gradient(ellipse at center,transparent 58%,rgba(2,4,10,.42) 100%)}'+
       '#halloweenPunchBtn{background:rgba(112,34,38,.94)!important;border-color:rgba(255,150,150,.7)!important;opacity:.97!important}'+
       '#halloweenKickBtn{background:rgba(30,58,112,.94)!important;border-color:rgba(150,190,255,.7)!important;opacity:.97!important}'+
       '.actionGrid{width:74px!important;justify-items:center!important;gap:8px!important}.actionGrid .act{width:64px!important;height:64px!important;min-height:64px!important;border-radius:50%!important;padding:5px!important;line-height:1.02!important;font-size:9px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important}.actionGrid .act.trick{min-height:64px!important;height:64px!important;font-size:9px!important}'+
@@ -798,6 +822,60 @@
   function sfxGageHit(){sfxNoise(0.08,0.4,'lowpass',1000,350);sfxTone(230,80,0.09,'triangle',0.4);}
   function sfxRevive(){sfxTone(300,600,0.18,'sine',0.3);sfxTone(450,900,0.22,'sine',0.25,0.1);}
 
+  // ---- Hit spark / death poof particles (one pooled THREE.Points = one draw call) ----
+  const P_MAX=240;
+  let _pPts=null,_pGeo=null,_pNext=0;
+  const _pPos=new Float32Array(P_MAX*3),_pCol=new Float32Array(P_MAX*3),
+        _pVel=new Float32Array(P_MAX*3),_pLife=new Float32Array(P_MAX);
+  function initParticles(){
+    try{
+      if(_pPts||typeof scene==='undefined'||!scene)return;
+      for(let i=0;i<P_MAX;i++)_pPos[i*3+1]=-999;
+      _pGeo=new THREE.BufferGeometry();
+      _pGeo.setAttribute('position',new THREE.BufferAttribute(_pPos,3));
+      _pGeo.setAttribute('color',new THREE.BufferAttribute(_pCol,3));
+      const m=new THREE.PointsMaterial({size:.14,vertexColors:true,transparent:true,opacity:.95,depthWrite:false,sizeAttenuation:true});
+      _pPts=new THREE.Points(_pGeo,m);
+      _pPts.frustumCulled=false;
+      _pPts.renderOrder=5;
+      scene.add(_pPts);
+    }catch(e){}
+  }
+  function spawnBurst(x,y,z,r,g,b,n,spread,up){
+    try{
+      if(!_pPts||!_pGeo)return;
+      for(let k=0;k<n;k++){
+        const i=_pNext;_pNext=(_pNext+1)%P_MAX;
+        _pPos[i*3]=x;_pPos[i*3+1]=y;_pPos[i*3+2]=z;
+        _pCol[i*3]=r;_pCol[i*3+1]=g;_pCol[i*3+2]=b;
+        const a=Math.random()*Math.PI*2,sp=spread*(0.4+Math.random()*0.6);
+        _pVel[i*3]=Math.cos(a)*sp;
+        _pVel[i*3+1]=up*(0.5+Math.random()*0.8);
+        _pVel[i*3+2]=Math.sin(a)*sp;
+        _pLife[i]=0.35+Math.random()*0.3;
+      }
+      _pGeo.attributes.position.needsUpdate=true;
+      _pGeo.attributes.color.needsUpdate=true;
+    }catch(e){}
+  }
+  function updateParticles(dt){
+    try{
+      if(!_pPts||!_pGeo)return;
+      let any=false;
+      for(let i=0;i<P_MAX;i++){
+        if(_pLife[i]<=0)continue;
+        any=true;
+        _pLife[i]-=dt;
+        if(_pLife[i]<=0){_pPos[i*3+1]=-999;continue;}
+        _pVel[i*3+1]-=9*dt;
+        _pPos[i*3]+=_pVel[i*3]*dt;
+        _pPos[i*3+1]+=_pVel[i*3+1]*dt;
+        _pPos[i*3+2]+=_pVel[i*3+2]*dt;
+      }
+      if(any)_pGeo.attributes.position.needsUpdate=true;
+    }catch(e){}
+  }
+
   function updateFoods(){
     try{
       const t=performance.now()/1000;
@@ -908,6 +986,7 @@
     if(e.dead)return;
     e.dead=true;
     sfxEnemyDie();
+    try{const pp=e.group.position;spawnBurst(pp.x,pp.y+1,pp.z,.5,.55,.45,16,2.6,3);}catch(pe){}
     clearTimeout(e._hitT);
 
     try{
@@ -994,6 +1073,7 @@
     if(H.rickHP>0){
       try{playRickCombat('hit',1.2,1.2,0.55);}
       catch(e){}
+      try{spawnBurst(controller.pos.x,controller.pos.y+1.3,controller.pos.z,1,.25,.2,8,2,2.5);}catch(pe){}
     }
 
     if(H.rickHP<=0){
@@ -1236,6 +1316,7 @@
       const dmg=flipping?31:36;
       damageEnemy(hit.e,dmg);
       sfxPunchHit();
+      try{const pp=hit.e.group.position;spawnBurst(pp.x,pp.y+1.2,pp.z,1,.62,.15,10,2.2,2.5);}catch(pe){}
     }else sfxWhiff();
     H.nextRickHit=now;
   }
@@ -1257,6 +1338,7 @@
       const dmg=flipping?38:44;
       damageEnemy(hit.e,dmg);
       sfxKickHit();
+      try{const pp=hit.e.group.position;spawnBurst(pp.x,pp.y+1.2,pp.z,1,.5,.1,14,2.8,3);}catch(pe){}
     }else sfxWhiff();
     H.nextRickHit=now;
   }
@@ -1553,7 +1635,19 @@
 
     for(const e of H.enemies){
       if(e.removed)continue;
-      if(e.mixer)e.mixer.update(dt);
+      if(e.mixer){
+        // Animation LOD: dead/close enemies animate every frame; mid-range every
+        // 2nd frame; far ones every 3rd (time-scaled so motion stays correct).
+        let skip=1;
+        try{
+          if(!e.dead&&typeof controller!=='undefined'&&controller&&controller.pos){
+            const d2=e.group.position.distanceToSquared(controller.pos);
+            skip=d2>900?3:d2>400?2:1;
+          }
+        }catch(lodE){}
+        e._lodTick=(e._lodTick||0)+1;
+        if(e._lodTick%skip===0)e.mixer.update(dt*skip);
+      }
       // Spawn-in: grow up out of the dock instead of popping into existence.
       if(e.spawnT<0.35&&e.model&&e.modelBaseScale){
         e.spawnT=Math.min(0.35,e.spawnT+dt);
@@ -1718,12 +1812,30 @@
     const dt=Math.min(.04,Math.max(.001,(now-last)/1000));
     last=now;
 
+    // FPS governor: step render resolution down when slow, back up when smooth.
+    try{
+      H._fpsN=(H._fpsN||0)+1;H._fpsT=(H._fpsT||0)+dt;
+      if(H._fpsT>=2){
+        const fps=H._fpsN/Math.max(.001,H._fpsT);
+        H._fpsN=0;H._fpsT=0;
+        if(H._prRaw){
+          if(fps<45&&(H.qLevel||0)<3){H.qLevel=(H.qLevel||0)+1;H._qUpStreak=0;reapplyPixelRatio();}
+          else if(fps>57&&(H.qLevel||0)>0){
+            H._qUpStreak=(H._qUpStreak||0)+1;
+            if(H._qUpStreak>=2){H.qLevel--;H._qUpStreak=0;reapplyPixelRatio();}
+          }
+          else H._qUpStreak=0;
+        }
+      }
+    }catch(e){}
+
     maybeStart();
     if(!H.started)return;
 
     updateEnemies(dt,now);
     updateFoods();
     updateGageRevive();
+    updateParticles(dt);
     gageFight(dt,now);
     updateSpookyWaypoint(now);
   }
@@ -1751,6 +1863,14 @@
       }
     }catch(e){}
     installFiveMinuteDeclineCooldown();
+    initParticles();
+    try{
+      if(!document.getElementById('hlVignette')){
+        const v=document.createElement('div');
+        v.id='hlVignette';
+        document.body.appendChild(v);
+      }
+    }catch(e){}
     // Remove the manatee's "FUCK YOU!" yell (TTS mispronounces it). Boat itself stays.
     try{
       yellFromManatee=function(){};
