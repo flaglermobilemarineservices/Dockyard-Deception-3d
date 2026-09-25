@@ -386,81 +386,6 @@
     }catch(e){}
   }
 
-  function addPumpkins(){
-    function placeSinglePumpkin(x,z,size=1.0,rot=0){
-      const y=getWalkSurfaceY(x,z);
-      const root=new THREE.Group();
-      root.position.set(x,y===null?.18:y,z);
-      root.rotation.y=rot;
-
-      const body=new THREE.Mesh(
-        new THREE.SphereGeometry(size*.92,22,18),
-        new THREE.MeshStandardMaterial({
-          color:0xf46b18,
-          roughness:.86,
-          metalness:.02,
-          emissive:0x4a1600,
-          emissiveIntensity:.45
-        })
-      );
-      body.scale.set(1.0,.94,.98);
-      body.position.y=size*.94;
-      body.castShadow=true;
-      body.receiveShadow=true;
-      root.add(body);
-
-      const stem=new THREE.Mesh(
-        new THREE.CylinderGeometry(size*.10,size*.13,size*.42,9),
-        new THREE.MeshStandardMaterial({color:0x4d3516,roughness:.95})
-      );
-      stem.position.set(0,size*1.82,0);
-      stem.rotation.z=.18;
-      stem.castShadow=true;
-      root.add(stem);
-
-      const eyeGeo=new THREE.ConeGeometry(size*.17,size*.28,3);
-      const faceMat=new THREE.MeshBasicMaterial({color:0xffe7a2});
-      const eyeL=new THREE.Mesh(eyeGeo,faceMat);
-      const eyeR=new THREE.Mesh(eyeGeo,faceMat);
-      eyeL.position.set(-size*.26,size*1.12,size*.77);
-      eyeR.position.set(size*.26,size*1.12,size*.77);
-      eyeL.rotation.z=Math.PI;
-      eyeR.rotation.z=Math.PI;
-      root.add(eyeL,eyeR);
-
-      const mouth=new THREE.Mesh(
-        new THREE.TorusGeometry(size*.28,size*.055,8,24,Math.PI*.92),
-        faceMat
-      );
-      mouth.position.set(0,size*.78,size*.78);
-      mouth.rotation.x=Math.PI/2;
-      mouth.rotation.z=Math.PI;
-      root.add(mouth);
-
-      scene.add(root);
-
-      const glow=new THREE.PointLight(0xff7b1f,1.55,8.5,2);
-      glow.position.set(x,(y===null?.18:y)+size*1.25,z);
-      scene.add(glow);
-    }
-
-    try{
-      // Rick's jack-o'-lanterns — Rick-sized, spread in pairs along both sides
-      // of the dock so they light the walkway without blocking it.
-      [
-        [-3.8,-22,1.05,.1],
-        [3.8,-22,.95,-.5],
-        [-5.2,-13,1.15,.65],
-        [5.2,-13,1.0,-.2],
-        [-4.9,4,1.1,-.4],
-        [4.9,4,1.0,.9],
-        [-4.6,13,1.15,1.2],
-        [4.6,13,.95,-1.1],
-        [18.4,4.8,1.1,-.8]
-      ].forEach(p=>placeSinglePumpkin(p[0],p[1],p[2],p[3]));
-    }catch(e){console.warn('Halloween pumpkin setup:',e)}
-  }
-
   function setupMusic(){
     try{
       if(typeof musicPlaylist==='undefined'||typeof playMusicIndex!=='function')return;
@@ -838,25 +763,8 @@
 
     // Hit reaction when hurt but still standing.
     if(H.rickHP>0){
-      try{
-        const a=actions&&actions.hit;
-        if(a){
-          const flipping=!!(controller&&controller.special&&controller.specialName==='backflip');
-          a.stop();
-          a.reset();
-          a.enabled=true;
-          a.setEffectiveWeight(1);
-          a.setEffectiveTimeScale(1.15);
-          a.setLoop(THREE.LoopOnce,1);
-          a.clampWhenFinished=false;
-          if(!flipping){
-            if(typeof currentAction!=='undefined'&&currentAction&&currentAction!==a)currentAction.fadeOut(.04);
-            if(typeof currentAction!=='undefined')currentAction=a;
-            if(typeof currentName!=='undefined')currentName='hit';
-          }
-          a.fadeIn(.02).play();
-        }
-      }catch(e){}
+      try{playRickCombat('hit',1.15,1.15);}
+      catch(e){}
     }
 
     if(H.rickHP<=0){
@@ -988,32 +896,76 @@
     return best?{e:best,d:bd}:null;
   }
 
+  // ---- Rick combat animation lock ----
+  // The base game's per-frame locomotion driver calls play('idle'/'walk'/'run')
+  // every frame, which killed Rick's punch/kick/hit one frame after it started.
+  // Rapidly popping between the attack pose and locomotion looked like shaking,
+  // and the attack only ever played fully when something else (alternate idle,
+  // mid-air flip) kept the driver quiet. While a combat animation is playing,
+  // locomotion play() requests are ignored.
+  let rickCombatLockUntil=0;
+  try{
+    const basePlay=play;
+    play=function(name,opts){
+      if(performance.now()<rickCombatLockUntil&&(name==='idle'||name==='walk'||name==='run'))return;
+      return basePlay(name,opts);
+    };
+  }catch(e){console.warn('Halloween play() wrapper:',e)}
+
+  function cancelAltIdle(){
+    try{
+      if(typeof alternateIdleActive!=='undefined'&&alternateIdleActive&&typeof cancelAlternateIdle==='function')cancelAlternateIdle();
+    }catch(e){}
+  }
+
+  function lockRickCombat(a,timeScale){
+    try{
+      const d=a.getClip().duration/(timeScale||1);
+      rickCombatLockUntil=performance.now()+d*1000+180;
+    }catch(e){rickCombatLockUntil=performance.now()+900;}
+  }
+
+  // One-shot combat clip on Rick with restart-on-mash. Grounded: locks out the
+  // locomotion driver and holds the final pose until the clip finishes, so the
+  // driver blends cleanly back to idle/walk/run. Mid-flip: blends over the
+  // aerial flip like before (the driver is silent mid-air).
+  function playRickCombat(clipKey,timeScale,flipScale){
+    const a=actions&&actions[clipKey];
+    if(!a)return;
+    const flipping=!!(controller&&controller.special&&controller.specialName==='backflip');
+    a.stop();
+    a.reset();
+    a.enabled=true;
+    if(flipping){
+      a.setEffectiveTimeScale(flipScale||1.35);
+      a.setEffectiveWeight(.72);
+      a.setLoop(THREE.LoopOnce,1);
+      a.clampWhenFinished=false;
+      a.fadeIn(.015).play();
+      return;
+    }
+    cancelAltIdle();
+    a.setEffectiveTimeScale(timeScale);
+    a.setEffectiveWeight(1);
+    a.setLoop(THREE.LoopOnce,1);
+    a.clampWhenFinished=true;
+    if(typeof currentAction!=='undefined'&&currentAction&&currentAction!==a)currentAction.fadeOut(.03);
+    if(typeof currentAction!=='undefined')currentAction=a;
+    if(typeof currentName!=='undefined')currentName=clipKey;
+    lockRickCombat(a,timeScale);
+    a.fadeIn(.03).play();
+  }
+
   function rickPunch(){
     if(!H.started||H.rickDown)return;
 
     const now=performance.now();
     const flipping=!!(controller&&controller.special&&controller.specialName==='backflip');
 
-    // Visual punch happens on EVERY press. During a flip it blends over the flip
+    // Visual punch happens on EVERY press (restarts if mashed). During a flip it blends over the flip
     // instead of cancelling the aerial move, so Rick can land several hits mid-flip.
-    try{
-      const a=actions&&actions.punch;
-      if(a){
-        a.stop();
-        a.reset();
-        a.enabled=true;
-        a.setEffectiveTimeScale(flipping?1.35:1.12);
-        a.setEffectiveWeight(flipping?.72:1);
-        a.setLoop(THREE.LoopOnce,1);
-        a.clampWhenFinished=false;
-        a.fadeIn(.015).play();
-        if(!flipping){
-          if(typeof currentAction!=='undefined'&&currentAction&&currentAction!==a)currentAction.fadeOut(.035);
-          if(typeof currentAction!=='undefined')currentAction=a;
-          if(typeof currentName!=='undefined')currentName='punch';
-        }
-      }
-    }catch(e){console.warn('Rick punch animation:',e)}
+    try{playRickCombat('punch',1.12,1.35);}
+    catch(e){console.warn('Rick punch animation:',e)}
 
     // One damage attempt per deliberate button press. Slightly more reach in the air.
     const hit=nearestEnemy(controller.pos,flipping?3.05:2.55);
@@ -1030,26 +982,10 @@
     const now=performance.now();
     const flipping=!!(controller&&controller.special&&controller.specialName==='backflip');
 
-    // Visual kick happens on EVERY press. During a flip it blends over the flip
+    // Visual kick happens on EVERY press (restarts if mashed). During a flip it blends over the flip
     // instead of cancelling the aerial move, so Rick can land hits mid-flip.
-    try{
-      const a=actions&&actions.kick;
-      if(a){
-        a.stop();
-        a.reset();
-        a.enabled=true;
-        a.setEffectiveTimeScale(flipping?1.3:1.08);
-        a.setEffectiveWeight(flipping?.72:1);
-        a.setLoop(THREE.LoopOnce,1);
-        a.clampWhenFinished=false;
-        a.fadeIn(.015).play();
-        if(!flipping){
-          if(typeof currentAction!=='undefined'&&currentAction&&currentAction!==a)currentAction.fadeOut(.035);
-          if(typeof currentAction!=='undefined')currentAction=a;
-          if(typeof currentName!=='undefined')currentName='kick';
-        }
-      }
-    }catch(e){console.warn('Rick kick animation:',e)}
+    try{playRickCombat('kick',1.08,1.3);}
+    catch(e){console.warn('Rick kick animation:',e)}
 
     // Kicks hit a little harder with a touch more reach than punches.
     const hit=nearestEnemy(controller.pos,flipping?3.2:2.7);
@@ -1481,7 +1417,6 @@
     makeNightSky();
     addFullMoon();
     addWebs();
-    addPumpkins();
     setupMusic();
     setupControls();
     initHowls();
