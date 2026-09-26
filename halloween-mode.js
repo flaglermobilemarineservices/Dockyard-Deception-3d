@@ -11,7 +11,7 @@
 
   const MAIN_ASSET_ROOT='https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/main/';
   const HALLOWEEN_ASSET_ROOT='https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/halloween-2026/';
-  const MAIN_HALLOWEEN_ASSETS=new Set(['halloween-zombie.glb','halloween-skeleton.glb','rick-gage-dead.glb','halloween-boss1.glb']);
+  const MAIN_HALLOWEEN_ASSETS=new Set(['halloween-zombie.glb','halloween-skeleton.glb','rick-gage-dead.glb','halloween-boss1.glb','halloween-boss1-hit.glb','halloween-boss1-dead.glb','halloween-boss1-kick.glb']);
   const halloweenAsset=name=>{
     const root=MAIN_HALLOWEEN_ASSETS.has(name)?MAIN_ASSET_ROOT:HALLOWEEN_ASSET_ROOT;
     return root+encodeURIComponent(name).replace(/%2F/g,'/');
@@ -772,6 +772,33 @@
         e.mixer=new THREE.AnimationMixer(model);
         e.walkAction=e.mixer.clipAction(clip);
         e.walkAction.play();
+        // Load boss custom clips (same rig, retarget by node name like the zombies do)
+        try{
+          gltfLoader.load(halloweenAsset('halloween-boss1-hit.glb'),hg=>{
+            try{
+              if(hg.animations&&hg.animations.length&&e.mixer){
+                const hc=typeof bestClip==='function'?bestClip(hg):hg.animations[0];
+                e.bossHitClip=hc;
+              }
+            }catch(_){}
+          },undefined,()=>{});
+          gltfLoader.load(halloweenAsset('halloween-boss1-dead.glb'),dg=>{
+            try{
+              if(dg.animations&&dg.animations.length&&e.mixer){
+                const dc=typeof bestClip==='function'?bestClip(dg):dg.animations[0];
+                e.bossDeadClip=dc;
+              }
+            }catch(_){}
+          },undefined,()=>{});
+          gltfLoader.load(halloweenAsset('halloween-boss1-kick.glb'),kg=>{
+            try{
+              if(kg.animations&&kg.animations.length&&e.mixer){
+                const kc=typeof bestClip==='function'?bestClip(kg):kg.animations[0];
+                e.bossKickClip=kc;
+              }
+            }catch(_){}
+          },undefined,()=>{});
+        }catch(_){}
       }
       e.ready=true;
     },undefined,err=>{
@@ -1087,7 +1114,17 @@
 
     // Hit reaction animation (retargeted Brawler clip, same mixamo rig).
     try{
-      if(H.enemyHitClip&&e.mixer){
+      if(e.type==='boss'&&e.bossHitClip&&e.mixer){
+        if(!e.bossHitAction)e.bossHitAction=e.mixer.clipAction(e.bossHitClip);
+        e.bossHitAction.stop();e.bossHitAction.reset();e.bossHitAction.enabled=true;
+        e.bossHitAction.setEffectiveWeight(1);e.bossHitAction.setLoop(THREE.LoopOnce,1);
+        e.bossHitAction.clampWhenFinished=false;
+        if(e.walkAction)e.walkAction.fadeOut(.07);
+        e.bossHitAction.fadeIn(.07).play();
+        const dur=Math.max(.25,e.bossHitAction.getClip().duration);
+        clearTimeout(e._hitT);
+        e._hitT=setTimeout(()=>{if(!e.dead&&!e.removed&&e.walkAction){e.walkAction.reset();e.walkAction.fadeIn(.14).play();}},dur*880);
+      }else if(H.enemyHitClip&&e.mixer){
         if(!e.hitAction)e.hitAction=e.mixer.clipAction(H.enemyHitClip);
         e.hitAction.stop();
         e.hitAction.reset();
@@ -1127,7 +1164,14 @@
     try{
       if(e.walkAction)e.walkAction.fadeOut(.06);
       if(e.hitAction)e.hitAction.stop();
-      if(H.enemyDeadClip&&e.mixer){
+      if(e.bossHitAction)e.bossHitAction.stop();
+      if(e.type==='boss'&&e.bossDeadClip&&e.mixer){
+        if(!e.bossDeadAction)e.bossDeadAction=e.mixer.clipAction(e.bossDeadClip);
+        e.bossDeadAction.reset();e.bossDeadAction.enabled=true;
+        e.bossDeadAction.setEffectiveWeight(1);e.bossDeadAction.setLoop(THREE.LoopOnce,1);
+        e.bossDeadAction.clampWhenFinished=true;
+        e.bossDeadAction.fadeIn(.08).play();
+      }else if(H.enemyDeadClip&&e.mixer){
         if(!e.deadAction)e.deadAction=e.mixer.clipAction(H.enemyDeadClip);
         e.deadAction.reset();
         e.deadAction.enabled=true;
@@ -1847,11 +1891,28 @@
           Math.min(1,dt*6)
         );
       }else if(now>=e.nextAttack){
-        e.nextAttack=now+(e.type==='boss'?1400:(e.type==='skeleton'?900:1120));
+        e.nextAttack=now+(e.type==='boss'?1600:(e.type==='skeleton'?900:1120));
         const damage=e.type==='boss'?18:(e.type==='skeleton'?5:6);
 
-        if(target==='gage')hurtGage(damage);
-        else hurtRick(damage);
+        if(e.type==='boss'&&e.bossKickClip&&e.mixer){
+          try{
+            if(!e.bossKickAction)e.bossKickAction=e.mixer.clipAction(e.bossKickClip);
+            e.bossKickAction.stop();e.bossKickAction.reset();e.bossKickAction.enabled=true;
+            e.bossKickAction.setEffectiveWeight(1);e.bossKickAction.setLoop(THREE.LoopOnce,1);
+            e.bossKickAction.clampWhenFinished=false;
+            if(e.walkAction)e.walkAction.fadeOut(.06);
+            e.bossKickAction.fadeIn(.06).play();
+            const kd=Math.max(.4,e.bossKickAction.getClip().duration);
+            clearTimeout(e._kickT);
+            e._kickT=setTimeout(()=>{if(!e.dead&&!e.removed&&e.walkAction){e.walkAction.reset();e.walkAction.fadeIn(.14).play();}},kd*900);
+          }catch(_){}
+          // Damage lands mid-kick
+          const dmgTarget=target, dmgAmt=damage;
+          setTimeout(()=>{if(!e.dead&&!e.removed){if(dmgTarget==='gage')hurtGage(dmgAmt);else hurtRick(dmgAmt);}},450);
+        }else{
+          if(target==='gage')hurtGage(damage);
+          else hurtRick(damage);
+        }
       }
     }
   }
