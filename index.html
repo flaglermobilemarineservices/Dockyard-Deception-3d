@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preload" as="image" href="halloween-loading.webp">
-<title>Dockyard Deception — Halloween 2026</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#05070d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dockside Deception">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Dockside Deception — Halloween 2026</title>
 <style>
 html,body{margin:0;width:100%;height:100%;background:#01040b;color:#fff;font-family:system-ui,Arial,sans-serif}
 #boot{position:fixed;inset:0;display:grid;place-items:center;z-index:999999;background:#01040b url('halloween-loading.webp') center/cover no-repeat}
@@ -14,9 +21,13 @@ html,body{margin:0;width:100%;height:100%;background:#01040b;color:#fff;font-fam
 </style>
 </head>
 <body>
-<div id="boot"><div id="box"><b>Loading Halloween Night…</b><div>Dockyard Deception</div></div></div>
+<div id="boot"><div id="box"><b>Loading Halloween Night…</b><div>Dockside Deception</div></div></div>
 <script>
 (async function () {
+  // Installable app: register the service worker (offline play + home-screen icon).
+  try {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  } catch (e) {}
   const stamp = Date.now();
   const BASE_URL =
     'https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/backup-non-halloween-2026-09-22/index.html?v=' + stamp;
