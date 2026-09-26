@@ -713,7 +713,7 @@
     scene.add(root);
 
     const e={type,group:root,hp:100,maxHP:100,speed:type==='zombie'?.78:1.04,nextAttack:0,dead:false,removed:false,ready:false,mixer:null,walkAction:null,model:null};
-    H.enemies.push(e);try{const _mk=new THREE.Mesh(new THREE.SphereGeometry(0.3,12,12),new THREE.MeshBasicMaterial({color:type==='zombie'?0x39ff6a:0x9adcff}));_mk.position.y=1.2;root.add(_mk);e._fallbackMk=_mk;const _gl=new THREE.PointLight(type==='zombie'?0x39ff6a:0x66ccff,2,7,2);_gl.position.set(0,1.8,0);root.add(_gl);e._fallbackGl=_gl;}catch(_){}
+    H.enemies.push(e);try{const _mk=new THREE.Mesh(new THREE.SphereGeometry(0.6,12,12),new THREE.MeshBasicMaterial({color:type==='zombie'?0x39ff6a:0x9adcff}));_mk.position.y=1.2;root.add(_mk);e._fallbackMk=_mk;const _gl=new THREE.PointLight(type==='zombie'?0x39ff6a:0x66ccff,2,7,2);_gl.position.set(0,1.8,0);root.add(_gl);e._fallbackGl=_gl;}catch(_){}
 
     const filename=type==='zombie'?'halloween-zombie.glb':'halloween-skeleton.glb';
     gltfLoader.load(halloweenAsset(filename),g=>{
@@ -1261,7 +1261,7 @@
     return false;
   }
 
-  function hurtRick(n){
+  function hurtRick(n,attacker){     try{if(attacker){const d=attacker.group?attacker.group.position.distanceTo(controller.pos):0;showWaveBanner('HIT BY '+String(attacker.type).toUpperCase()+' '+d.toFixed(1)+'m'+(attacker.ready?'':' NOT-READY')+(attacker.model?'':' NO-MODEL'),1200);}}catch(_){}
     if(H.rickDown)return;
 
     H.rickHP=Math.max(0,H.rickHP-n);
@@ -1358,7 +1358,7 @@
     }catch(e){}
   }
 
-  function hurtGage(n){
+  function hurtGage(n,attacker){     try{if(attacker){const d=attacker.group?attacker.group.position.distanceTo(gageNPC.position):0;showWaveBanner('GAGE HIT BY '+String(attacker.type).toUpperCase()+' '+d.toFixed(1)+'m',1200);}}catch(_){}
     if(H.gageDown)return;
 
     H.gageHP=Math.max(0,H.gageHP-n);
@@ -1909,10 +1909,10 @@
           }catch(_){}
           // Damage lands mid-kick
           const dmgTarget=target, dmgAmt=damage;
-          setTimeout(()=>{if(!e.dead&&!e.removed){if(dmgTarget==='gage')hurtGage(dmgAmt);else hurtRick(dmgAmt);}},450);
+          setTimeout(()=>{if(!e.dead&&!e.removed){if(dmgTarget==='gage')hurtGage(dmgAmt,e);else hurtRick(dmgAmt,e);}},450);
         }else{
-          if(target==='gage')hurtGage(damage);
-          else hurtRick(damage);
+          if(target==='gage')hurtGage(damage,e);
+          else hurtRick(damage,e);
         }
       }
     }
