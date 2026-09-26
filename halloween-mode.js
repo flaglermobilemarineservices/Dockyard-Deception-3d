@@ -164,7 +164,7 @@
       '#hlRotateHint{display:none;position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);z-index:200000;pointer-events:none;background:rgba(3,5,12,.88);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:8px 16px;font:700 12px/1.2 system-ui,sans-serif;color:#fff;white-space:nowrap}'+
       '@media(pointer:coarse) and (orientation:portrait){#hlRotateHint{display:block}}'+
       // Manatee "FUCK YOU!" yell removed (the TTS voice mispronounces it). The boat stays.
-      '#manateeYell{display:none!important;visibility:hidden!important}';
+      '#manateeYell{display:none!important;visibility:hidden!important}'+'#hlWaveBanner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.9);z-index:200000;pointer-events:none;font:1000 48px/1.1 system-ui,sans-serif;color:#fff;text-shadow:0 0 24px rgba(255,80,80,.8),0 4px 12px rgba(0,0,0,.8);opacity:0;transition:opacity .3s,transform .3s;text-align:center;white-space:nowrap}'+'#hlWaveBanner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}'+'@media(pointer:coarse){#hlWaveBanner{font-size:36px}}';
     document.head.appendChild(s);
   }
 
@@ -187,7 +187,8 @@
     if(rt)rt.textContent=Math.round(H.rickHP);
     if(gt)gt.textContent=Math.round(H.gageHP);
   }
-  function setWaveText(t){const e=document.getElementById('halloweenWave');if(e)e.textContent=t}
+  function setWaveText(t){const e=document.getElementById('halloweenWave');if(e)e.textContent=t}function showWaveBanner(text,duration){try{let b=document.getElementById('hlWaveBanner');if(!b){b=document.createElement('div');b.id='hlWaveBanner';document.body.appendChild(b);}b.textContent=text;b.classList.add('show');clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('show'),duration||2000);}catch(e){}}
+   
 
   function applyNight(){
     try{
@@ -749,7 +750,7 @@
     root.position.set(x,y===null?.18:y,z);
     addEnemyBar(root);
     scene.add(root);
-    const e={type:'boss',group:root,hp:900,maxHP:900,speed:0.9,nextAttack:0,dead:false,removed:false,ready:false,mixer:null,walkAction:null,model:null};
+    const e={type:'boss',group:root,hp:900,maxHP:900,speed:0.9,nextAttack:0,dead:false,removed:false,ready:false,mixer:null,walkAction:null,model:null};try{const glow=new THREE.PointLight(0xff3333,3,10,2);glow.position.set(0,2.5,0);root.add(glow);}catch(_){}try{if(root.userData.hpBar)root.userData.hpBar.visible=true;}catch(_){}
     H.enemies.push(e);
     const filename='halloween-boss1.glb';
     gltfLoader.load(halloweenAsset(filename),g=>{
@@ -811,7 +812,7 @@
   function spawnBossWave(){
     H.bossActive=true;
     H.waveQuota={zombie:0,skeleton:0};
-    setWaveText('BOSS • STITCHPUNK KID');
+    setWaveText('BOSS • STITCHPUNK KID');showWaveBanner('BOSS • STITCHPUNK KID',2500);
     try{
       const rickPos=(controller&&controller.pos)?controller.pos:new THREE.Vector3(0,0,-27);
       const sp=nearbySpawnPoint(rickPos,2);
@@ -1074,7 +1075,7 @@
     if(count>MAX_EACH)count=MAX_EACH;
 
     const zs=count===1?'ZOMBIE':'ZOMBIES',ss=count===1?'SKELETON':'SKELETONS';
-    setWaveText('WAVE '+n+' • '+count+' '+zs+' + '+count+' '+ss);
+    setWaveText('WAVE '+n+' • '+count+' '+zs+' + '+count+' '+ss);showWaveBanner('WAVE '+n,1800);
 
     H.waveQuota={zombie:count,skeleton:count};
     if(n===1){
@@ -1203,7 +1204,7 @@
     const cur=H.wave;
     // Boss after wave 3
     if(cur===3 && !H.bossSpawned){
-      setWaveText('WAVE 3 CLEAR • BOSS INCOMING…');
+      setWaveText('WAVE 3 CLEAR • BOSS INCOMING…');showWaveBanner('WAVE 3 CLEAR',1800);
       setTimeout(()=>{
         if(H.wave===cur && !H.bossSpawned){
           H.bossSpawned=true;
@@ -1215,14 +1216,14 @@
     // Boss defeated -> wave 4
     if(H.bossActive){
       H.bossActive=false;
-      setWaveText('BOSS DOWN • WAVE 4 INCOMING…');
+      setWaveText('BOSS DOWN • WAVE 4 INCOMING…');showWaveBanner('BOSS DOWN',1800);
       setTimeout(()=>{
         spawnWave(4);
       },2200);
       return;
     }
     // Endless waves: clearing a wave spawns the next, doubled.
-    setWaveText('WAVE '+cur+' CLEAR • MORE ARE COMING…');
+    setWaveText('WAVE '+cur+' CLEAR • MORE ARE COMING…');showWaveBanner('WAVE '+cur+' CLEAR',1800);
     setTimeout(()=>{
       if(H.wave===cur)spawnWave(cur+1);
     },2200);
@@ -1854,7 +1855,7 @@
       }
       if(e.dead)continue;
       updateEnemyBar(e);
-      if(!e.ready)continue;
+      if(!e.ready)continue;if(e.type==='boss'&&e.spawnT<0.35)continue;
 
       const swing=e.group.userData.swing||[];
       const phase=now*.008*(e.type==='skeleton'?1.35:1);
