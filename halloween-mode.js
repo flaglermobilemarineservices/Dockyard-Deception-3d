@@ -187,7 +187,7 @@
     if(rt)rt.textContent=Math.round(H.rickHP);
     if(gt)gt.textContent=Math.round(H.gageHP);
   }
-  function setWaveText(t){const e=document.getElementById('halloweenWave');if(e)e.textContent=t}function showWaveBanner(text,duration){try{let b=document.getElementById('hlWaveBanner');if(!b){b=document.createElement('div');b.id='hlWaveBanner';document.body.appendChild(b);}b.textContent=text;b.classList.add('show');clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('show'),duration||2000);}catch(e){}}
+  function updateEnemyCount(){try{const el=document.getElementById('halloweenWave');if(!el)return;const alive=H.enemies.filter(x=>!x.dead&&!x.removed).length;const quota=H.waveQuota?((H.waveQuota.zombie||0)+(H.waveQuota.skeleton||0)):0;const total=alive+quota;if(H.bossActive){el.textContent='BOSS • '+alive+' LEFT';}else if(H.wave>0){el.textContent='WAVE '+H.wave+' • '+total+' LEFT ('+alive+' ACTIVE)';}}catch(e){}}function setWaveText(t){const e=document.getElementById('halloweenWave');if(e)e.textContent=t}function showWaveBanner(text,duration){try{let b=document.getElementById('hlWaveBanner');if(!b){b=document.createElement('div');b.id='hlWaveBanner';document.body.appendChild(b);}b.textContent=text;b.classList.add('show');clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('show'),duration||2000);}catch(e){}}
    
 
   function applyNight(){
@@ -713,7 +713,7 @@
     scene.add(root);
 
     const e={type,group:root,hp:100,maxHP:100,speed:type==='zombie'?.78:1.04,nextAttack:0,dead:false,removed:false,ready:false,mixer:null,walkAction:null,model:null};
-    H.enemies.push(e);
+    H.enemies.push(e);try{const _mk=new THREE.Mesh(new THREE.SphereGeometry(0.3,12,12),new THREE.MeshBasicMaterial({color:type==='zombie'?0x39ff6a:0x9adcff}));_mk.position.y=1.2;root.add(_mk);e._fallbackMk=_mk;const _gl=new THREE.PointLight(type==='zombie'?0x39ff6a:0x66ccff,2,7,2);_gl.position.set(0,1.8,0);root.add(_gl);e._fallbackGl=_gl;}catch(_){}
 
     const filename=type==='zombie'?'halloween-zombie.glb':'halloween-skeleton.glb';
     gltfLoader.load(halloweenAsset(filename),g=>{
@@ -730,7 +730,7 @@
       const b1=new THREE.Box3().setFromObject(model);
       model.position.y-=b1.min.y;
       root.add(model);
-      e.model=model;
+      e.model=model;try{if(e._fallbackMk){root.remove(e._fallbackMk);e._fallbackMk=null;}}catch(_){}
       if(g.animations&&g.animations.length){
         const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
         e.mixer=new THREE.AnimationMixer(model);
@@ -767,7 +767,7 @@
       const b1=new THREE.Box3().setFromObject(model);
       model.position.y-=b1.min.y;
       root.add(model);
-      e.model=model;
+      e.model=model;try{if(e._fallbackMk){root.remove(e._fallbackMk);e._fallbackMk=null;}}catch(_){}
       if(g.animations&&g.animations.length){
         const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
         e.mixer=new THREE.AnimationMixer(model);
@@ -1156,7 +1156,7 @@
   }
 
   function killEnemy(e){
-    if(e.dead)return;
+    if(e.dead)return;try{if(e._fallbackMk&&e.group){e.group.remove(e._fallbackMk);}}catch(_){}
     e.dead=true;
     sfxEnemyDie();
     try{const pp=e.group.position;spawnBurst(pp.x,pp.y+1,pp.z,.5,.55,.45,16,2.6,3);}catch(pe){}
@@ -2048,7 +2048,7 @@
     maybeStart();
     if(!H.started)return;
 
-    updateEnemies(dt,now);
+    updateEnemies(dt,now);updateEnemyCount();
     updateFoods();
     updateGageRevive();
     updateParticles(dt);
