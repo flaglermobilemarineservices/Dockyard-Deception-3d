@@ -11,7 +11,7 @@
 
   const MAIN_ASSET_ROOT='https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/main/';
   const HALLOWEEN_ASSET_ROOT='https://raw.githubusercontent.com/flaglermobilemarineservices/Dockyard-Deception-3d/halloween-2026/';
-  const MAIN_HALLOWEEN_ASSETS=new Set(['halloween-zombie.glb','halloween-skeleton.glb','rick-gage-dead.glb']);
+  const MAIN_HALLOWEEN_ASSETS=new Set(['halloween-zombie.glb','halloween-skeleton.glb','rick-gage-dead.glb','halloween-boss1.glb']);
   const halloweenAsset=name=>{
     const root=MAIN_HALLOWEEN_ASSETS.has(name)?MAIN_ASSET_ROOT:HALLOWEEN_ASSET_ROOT;
     return root+encodeURIComponent(name).replace(/%2F/g,'/');
@@ -69,7 +69,7 @@
     enemies:[],started:false,nextGageHit:0,nextRickHit:0,
     gagePunchAction:null,gageKickAction:null,gageHitAction:null,gageDeadAction:null,gageKickNext:false,
     enemyHitClip:null,enemyDeadClip:null,
-    declineCooldownUntil:0,
+    declineCooldownUntil:0,bossSpawned:false,bossActive:false,
     spookyWaypoint:null,
     _howlT:null,_howlInit:false,howlCtx:null
   };
@@ -743,6 +743,58 @@
     });
     return e;
   }
+  function spawnBoss(x,z){
+    const root=new THREE.Group();
+    const y=getWalkSurfaceY(x,z);
+    root.position.set(x,y===null?.18:y,z);
+    addEnemyBar(root);
+    scene.add(root);
+    const e={type:'boss',group:root,hp:900,maxHP:900,speed:0.9,nextAttack:0,dead:false,removed:false,ready:false,mixer:null,walkAction:null,model:null};
+    H.enemies.push(e);
+    const filename='halloween-boss1.glb';
+    gltfLoader.load(halloweenAsset(filename),g=>{
+      if(e.dead||e.removed)return;
+      const model=g.scene;
+      model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false}});
+      model.updateMatrixWorld(true);
+      const b0=new THREE.Box3().setFromObject(model),sz=new THREE.Vector3();b0.getSize(sz);
+      const targetH=2.6;
+      e.modelBaseScale=targetH/Math.max(.001,sz.y);
+      e.spawnT=0;
+      model.scale.setScalar(e.modelBaseScale*0.01);
+      model.updateMatrixWorld(true);
+      const b1=new THREE.Box3().setFromObject(model);
+      model.position.y-=b1.min.y;
+      root.add(model);
+      e.model=model;
+      if(g.animations&&g.animations.length){
+        const clip=typeof bestClip==='function'?bestClip(g):g.animations[0];
+        e.mixer=new THREE.AnimationMixer(model);
+        e.walkAction=e.mixer.clipAction(clip);
+        e.walkAction.play();
+      }
+      e.ready=true;
+    },undefined,err=>{
+      console.error('Halloween boss model failed:',err);
+      setWaveText('BOSS MODEL MISSING • UPLOAD '+filename);
+    });
+    return e;
+  }
+
+  function spawnBossWave(){
+    H.bossActive=true;
+    H.waveQuota={zombie:0,skeleton:0};
+    setWaveText('BOSS • STITCHPUNK KID');
+    try{
+      const rickPos=(controller&&controller.pos)?controller.pos:new THREE.Vector3(0,0,-27);
+      const sp=nearbySpawnPoint(rickPos,2);
+      spawnBoss(sp.x,sp.z);
+    }catch(e){
+      console.warn('Boss spawn:',e);
+      spawnBoss(0,-20);
+    }
+  }
+
 
   function nearbySpawnPoint(pos,slot=0){
     const offsets=[
@@ -1102,12 +1154,30 @@
       checkWave();
     },dur*1000+250);
   }
-
   function checkWave(){
     if(aliveEnemies().length)return;
-
-    // Endless waves: clearing a wave spawns the next, doubled.
     const cur=H.wave;
+    // Boss after wave 3
+    if(cur===3 && !H.bossSpawned){
+      setWaveText('WAVE 3 CLEAR • BOSS INCOMING…');
+      setTimeout(()=>{
+        if(H.wave===cur && !H.bossSpawned){
+          H.bossSpawned=true;
+          spawnBossWave();
+        }
+      },2200);
+      return;
+    }
+    // Boss defeated -> wave 4
+    if(H.bossActive){
+      H.bossActive=false;
+      setWaveText('BOSS DOWN • WAVE 4 INCOMING…');
+      setTimeout(()=>{
+        spawnWave(4);
+      },2200);
+      return;
+    }
+    // Endless waves: clearing a wave spawns the next, doubled.
     setWaveText('WAVE '+cur+' CLEAR • MORE ARE COMING…');
     setTimeout(()=>{
       if(H.wave===cur)spawnWave(cur+1);
@@ -1777,8 +1847,8 @@
           Math.min(1,dt*6)
         );
       }else if(now>=e.nextAttack){
-        e.nextAttack=now+(e.type==='skeleton'?900:1120);
-        const damage=e.type==='skeleton'?5:6;
+        e.nextAttack=now+(e.type==='boss'?1400:(e.type==='skeleton'?900:1120));
+        const damage=e.type==='boss'?18:(e.type==='skeleton'?5:6);
 
         if(target==='gage')hurtGage(damage);
         else hurtRick(damage);
