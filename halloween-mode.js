@@ -226,6 +226,17 @@
       moon.castShadow=true;
       scene.add(moon);
       scene.add(new THREE.AmbientLight(0x152341,.22));
+      // Perf: the base ships 6 directional + 4 hemisphere lights tuned for day.
+      // At night the moon is the key light — hide the day-tuned ones entirely.
+      // (visible=false drops them from the shader; merely dimming still costs.)
+      try{
+        const _sun=(typeof sun!=='undefined')?sun:null;
+        let _keptHemi=false;
+        scene.traverse(o=>{
+          if(o.isDirectionalLight&&o!==moon&&o!==_sun)o.visible=false;
+          if(o.isHemisphereLight){if(_keptHemi)o.visible=false;else _keptHemi=true;}
+        });
+      }catch(e){console.warn('Halloween light cull:',e)}
 
       const starPos=[];
       for(let i=0;i<420;i++){

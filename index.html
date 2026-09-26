@@ -39,6 +39,12 @@ html,body{margin:0;width:100%;height:100%;background:#01040b;color:#fff;font-fam
     let html = await baseResponse.text();
     // Halloween build cleanup: remove the old Manatee Man profanity.
     html = html.replace(/fuck\s+you/gi, '');
+    // Perf: phones choke on MSAA — strip it from every WebGLRenderer on mobile.
+    // (antialias is locked in at context creation, so it has to happen here,
+    // before the game builds its renderers. Desktop keeps it.)
+    const _isMobileGPU = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+      (navigator.maxTouchPoints > 0 && Math.min(screen.width, screen.height) < 820);
+    if (_isMobileGPU) html = html.replace(/antialias:true/g, 'antialias:false');
     let halloweenCode = await halloweenResponse.text();
 
     // Halloween-only asset URLs are handled inside halloween-mode.js.
